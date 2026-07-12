@@ -262,7 +262,7 @@
 
 
 <script>
-// Bull data now lives in bulls.json (fetched below) instead of being
+// Bull data now lives in bulls_1.json (fetched below) instead of being
 // embedded inline — keeps this HTML file small and lets the browser cache
 // the dataset across visits. Populated once init() below resolves; nothing
 // that runs before that point should assume BULLS is non-empty.
@@ -1234,13 +1234,13 @@ function route(){
   render();
 }
 async function init(){
-  document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Loading bull data…</h3><p>Fetching bulls.json — this can take a few seconds on a slow connection.</p></div>`;
+  document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Loading bull data…</h3><p>Fetching bulls_1.json — this can take a few seconds on a slow connection.</p></div>`;
   try {
-    const res = await fetch('bulls.json');
+    const res = await fetch('bulls_1.json');
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     BULLS = await res.json();
   } catch(err) {
-    document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Couldn't load bull data</h3><p>${err.message}. Make sure bulls.json is in the same folder as this HTML file, and that you're viewing this over a web server rather than by double-clicking the file — browsers block local file:// pages from fetching other local files. A quick local server: run <code>python3 -m http.server</code> in that folder, then open http://localhost:8000/.</p></div>`;
+    document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Couldn't load bull data</h3><p>${err.message}. Make sure bulls_1.json is in the same folder as this HTML file, and that you're viewing this over a web server rather than by double-clicking the file — browsers block local file:// pages from fetching other local files. A quick local server: run <code>python3 -m http.server</code> in that folder, then open http://localhost:8000/.</p></div>`;
     return;
   }
   window.addEventListener('hashchange', route);
