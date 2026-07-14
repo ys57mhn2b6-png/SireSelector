@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sire Selector — Custom Bull Ranking Tool</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root{
+    --cream:#FAF6EE;
+    --paper:#FFFDF8;
+    --ink:#20281F;
+    --green-deep:#2F4C39;
+    --green-mid:#4A6B52;
+    --amber:#C1832E;
+    --amber-soft:#EFD9AF;
+    --slate:#6B776C;
+    --line:#E2D9C4;
+    --red:#A6432E;
+    --good:#3C6E4E;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--cream); color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif; font-size:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    padding:28px 32px 20px; border-bottom:2px solid var(--green-deep);
+    background:linear-gradient(180deg,var(--paper),var(--cream));
+  }
+  header h1{
+    font-family:'Fraunces',serif; font-weight:700; font-size:30px; margin:0 0 4px;
+    color:var(--green-deep); letter-spacing:-0.01em;
+  }
+  header p{margin:0; color:var(--slate); font-size:14px; max-width:640px; line-height:1.5;}
+  .layout{display:flex; align-items:flex-start; min-height:calc(100vh - 100px);}
+  .layout.detail-mode .sidebar{display:none;}
+  .detail-page{max-width:900px;}
+  .back-link{display:inline-block; margin-bottom:14px; font-size:13px; color:var(--slate); text-decoration:none; cursor:pointer;}
+  .back-link:hover{color:var(--green-deep); text-decoration:underline;}
+  .detail-name{font-size:24px; margin:0 0 6px;}
+  .detail-meta{display:flex; flex-wrap:wrap; gap:16px; font-size:13px; color:var(--slate); margin-bottom:14px;}
+  .detail-meta b{color:var(--ink); font-family:'JetBrains Mono',monospace;}
+  .detail-link-btn{
+    display:inline-block; margin-bottom:20px; padding:9px 16px; background:var(--green-deep);
+    color:#fff; text-decoration:none; border-radius:8px; font-size:13px; font-weight:600;
+  }
+  .detail-link-btn:hover{background:var(--green-mid);}
+  .detail-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:10px;}
+  .detail-subgroup{
+    font-family:'Fraunces',serif; font-size:12.5px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--slate); margin:14px 0 8px; padding-top:10px; border-top:1px solid var(--line);
+  }
+  .detail-subgroup:first-of-type{margin-top:0; padding-top:0; border-top:none;}
+  .sidebar-subgroup{
+    font-family:'Fraunces',serif; font-size:11.5px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--green-deep); margin:14px 0 8px; padding-top:10px; border-top:1px dashed var(--line);
+  }
+  .sidebar-subgroup:first-of-type{margin-top:0; padding-top:0; border-top:none;}
+  .type-chart{display:flex; flex-direction:column;}
+  .type-bar-row{display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--line);}
+  .type-bar-row:last-child{border-bottom:none;}
+  .type-bar-label{flex:0 0 150px; font-size:12px; color:var(--ink);}
+  .type-bar-desc{flex:0 0 78px; font-size:10.5px; color:var(--slate); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .type-bar-desc.left{text-align:right;}
+  .type-bar-desc.right{text-align:left;}
+  .type-bar-val{flex:0 0 52px; font-family:'JetBrains Mono',monospace; font-size:12px; text-align:right; color:var(--slate);}
+  .type-bar-track{flex:1; position:relative; height:12px; background:#F1ECDE; border-radius:3px; overflow:hidden;}
+  .type-bar-center{position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--line);}
+  .type-bar-fill{position:absolute; top:1px; bottom:1px; border-radius:2px;}
+  .type-bar-fill.pos{background:var(--green-mid);}
+  .type-bar-fill.neg{background:var(--amber);}
+  .detail-stat{padding:8px 10px; background:#F1ECDE; border-radius:8px;}
+  .detail-stat-label{display:block; font-size:10.5px; color:var(--slate); margin-bottom:2px;}
+  .detail-stat-val{font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; color:var(--ink);}
+  tbody td.name-cell{cursor:pointer;}
+  tbody td.name-cell:hover{text-decoration:underline; color:var(--green-deep);}
+  .sidebar{
+    width:340px; flex:0 0 340px; padding:22px 20px 60px; position:sticky; top:0;
+    max-height:100vh; overflow-y:auto; border-right:1px solid var(--line);
+  }
+  .main{flex:1; padding:22px 28px 60px; min-width:0;}
+
+  .panel{
+    background:var(--paper); border:1px solid var(--line); border-radius:10px;
+    padding:16px 16px 18px; margin-bottom:16px;
+  }
+  .panel h2{
+    font-family:'Fraunces',serif; font-size:15px; font-weight:600; margin:0 0 10px;
+    color:var(--green-deep); text-transform:uppercase; letter-spacing:.04em;
+  }
+  .panel h2 .count{
+    font-family:'JetBrains Mono',monospace; font-weight:400; font-size:11px; color:var(--slate);
+    text-transform:none; letter-spacing:0; margin-left:6px;
+  }
+  .row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+  label.check{display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:8px; cursor:pointer; color:var(--ink);}
+  label.check input{accent-color:var(--green-deep); width:15px; height:15px;}
+  label.check.direction-toggle{font-size:11px; margin-bottom:6px; color:var(--slate); align-items:flex-start;}
+  label.check.direction-toggle input{width:13px; height:13px; margin-top:1px; flex:0 0 auto;}
+
+  .slider-row{margin-bottom:14px;}
+  .slider-row .top{display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:3px;}
+  .slider-row .top .name{font-weight:600; color:var(--ink);}
+  .slider-row .top .val{font-family:'JetBrains Mono',monospace; color:var(--amber); font-weight:500;}
+  .slider-row .desc{font-size:11px; color:var(--slate); margin-bottom:4px; line-height:1.35;}
+  .range-row{margin-top:8px;}
+  .range-row .range-label{font-size:10.5px; color:var(--slate); display:block; margin-bottom:3px;}
+  .range-inputs{display:flex; align-items:center; gap:4px;}
+  .range-inputs input[type=number]{
+    width:0; flex:1 1 0; min-width:0; padding:4px 5px; font-size:11.5px; text-align:center;
+  }
+  .range-inputs span{font-size:10px; color:var(--slate); flex:0 0 auto;}
+  .range-clear{
+    background:none; border:none; color:var(--slate); cursor:pointer; font-size:15px;
+    line-height:1; padding:0 1px; flex:0 0 auto;
+  }
+  .range-clear:hover{color:var(--red);}
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:4px; background:var(--line); border-radius:2px; outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--green-deep); cursor:pointer; border:2px solid var(--paper); box-shadow:0 0 0 1px var(--green-deep);
+  }
+  select, input[type=number], input[type=text]{
+    font-family:'Inter',sans-serif; font-size:13px; padding:6px 8px; border:1px solid var(--line);
+    border-radius:6px; background:var(--paper); color:var(--ink); width:100%;
+  }
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .tag{
+    display:inline-block; font-size:10.5px; padding:2px 7px; border-radius:20px; font-weight:600;
+    letter-spacing:.02em;
+  }
+  .tag.a2{background:#E4EEE7; color:var(--good);}
+  .tag.warn{background:#F5E1DA; color:var(--red);}
+  .tag.muted{background:#EFEAE0; color:var(--slate);}
+
+  .presets{display:flex; flex-direction:column; gap:8px; margin-bottom:12px;}
+  .preset-item{display:flex; flex-direction:column; gap:3px;}
+  .preset-btn{
+    font-size:11.5px; padding:6px 12px; border-radius:20px; border:1px solid var(--green-deep);
+    background:transparent; color:var(--green-deep); cursor:pointer; font-weight:600; width:100%;
+    text-align:left;
+  }
+  .preset-btn:hover{background:var(--green-deep); color:var(--paper);}
+  .preset-btn.active{background:var(--green-deep); color:var(--paper);}
+
+  .preset-breakdown-line{
+    font-size:10.5px; color:var(--slate); font-family:'JetBrains Mono',monospace;
+    padding-left:12px;
+  }
+
+  .reset-link{font-size:11.5px; color:var(--slate); cursor:pointer; text-decoration:underline; background:none; border:none; padding:0;}
+  .expander-btn{
+    display:block; width:100%; text-align:left; font-size:12.5px; font-weight:600; color:var(--green-deep);
+    background:#F1ECDE; border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:-2px 0 12px;
+    cursor:pointer; font-family:'Inter',sans-serif; text-transform:none; letter-spacing:0;
+  }
+  .expander-btn:hover{background:#E9E2CC;}
+  .genotype-checks{display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:2px;}
+  .genotype-check{margin-bottom:2px !important; font-size:12.5px !important;}
+  .genotype-check input{width:14px !important; height:14px !important;}
+
+  .toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:12px; flex-wrap:wrap;}
+  .toolbar .stats{font-size:13px; color:var(--slate);}
+  .toolbar .stats b{color:var(--green-deep);}
+  .btn{
+    font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600; padding:7px 14px; border-radius:7px;
+    border:1px solid var(--green-deep); background:var(--green-deep); color:var(--paper); cursor:pointer;
+  }
+  .btn.secondary{background:transparent; color:var(--green-deep);}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  table{width:max-content; min-width:100%; border-collapse:collapse; font-size:12.5px;}
+  thead th{
+    position:sticky; top:0; background:var(--green-deep); color:var(--cream); text-align:left;
+    padding:9px 8px; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.03em;
+    cursor:pointer; white-space:nowrap; z-index:2;
+  }
+  thead th:hover{background:var(--green-mid);}
+  thead th.sorted{color:var(--amber-soft);}
+  tbody td{padding:8px 8px; border-bottom:1px solid var(--line); white-space:nowrap; font-family:'JetBrains Mono',monospace; font-size:12px;}
+  tbody td.name-cell{font-family:'Inter',sans-serif; font-weight:600; white-space:normal; max-width:200px;}
+  tbody td.name-cell .naab{display:block; font-family:'JetBrains Mono',monospace; font-weight:400; font-size:10.5px; color:var(--slate);}
+  tbody tr:hover{background:#F1ECDE;}
+  tbody tr.starred{background:#FBF1DE;}
+  .rank-cell{font-family:'JetBrains Mono',monospace; color:var(--slate); width:28px;}
+  .score-cell{font-weight:700; color:var(--green-deep); font-size:13px;}
+  .column-picker{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:10px; width:100%;}
+  .column-picker-label{font-size:12px; color:var(--slate); font-weight:600;}
+  .export-top-btn{display:block; width:100%; margin-bottom:12px;}
+  .chip-check{
+    display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--ink);
+    background:#F1ECDE; border:1px solid var(--line); border-radius:14px; padding:3px 10px 3px 8px;
+    cursor:pointer; margin:0;
+  }
+  .chip-check input{width:12px; height:12px; accent-color:var(--green-deep);}
+  .star-btn{
+    background:none; border:none; cursor:pointer; font-size:16px; color:var(--line); padding:0; line-height:1;
+  }
+  .star-btn.on{color:var(--amber);}
+  .empty-state{padding:60px 20px; text-align:center; color:var(--slate);}
+  .empty-state h3{font-family:'Fraunces',serif; color:var(--green-deep); font-size:18px;}
+
+  .shortlist-panel{margin-top:20px;}
+  .shortlist-row{display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--line); font-size:12.5px;}
+  .shortlist-row .rm{cursor:pointer; color:var(--red); font-size:11px; background:none; border:none;}
+
+  ::-webkit-scrollbar{width:10px; height:12px;}
+  ::-webkit-scrollbar-track{background:var(--cream);}
+  ::-webkit-scrollbar-thumb{background:var(--green-mid); border-radius:6px; border:2px solid var(--cream);}
+  ::-webkit-scrollbar-thumb:hover{background:var(--green-deep);}
+
+  .foot-note{font-size:11px; color:var(--slate); line-height:1.5; margin-top:6px;}
+  .table-scroll{
+    max-height:calc(100vh - 170px);
+    overflow-x:scroll;
+    overflow-y:auto;
+    border:1px solid var(--line);
+    border-radius:10px;
+    scrollbar-color: var(--green-mid) var(--cream); /* Firefox */
+  }
+
+  /* ---------- Mobile ---------- */
+  .mobile-toolbar-row{display:none;}
+  .mobile-filters-btn, .mobile-columns-btn, .mobile-export-btn{
+    display:none; align-items:center; gap:6px;
+    background:var(--green-deep); color:#fff; border:none; border-radius:8px;
+    padding:10px 14px; font-size:14px; font-weight:600; font-family:'Inter',sans-serif;
+    cursor:pointer;
+  }
+  .mobile-filters-btn:disabled, .mobile-columns-btn:disabled, .mobile-export-btn:disabled{
+    opacity:.45; cursor:not-allowed;
+  }
+  .sidebar-backdrop{display:none;}
+  @media (max-width: 860px){
+    header{padding:16px 16px 14px;}
+    header h1{font-size:22px;}
+    header p{font-size:12.5px; line-height:1.4;}
+    .layout{display:block; min-height:0;}
+    .main{padding:14px 14px 40px; width:100%;}
+    .mobile-toolbar-row{display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:12px;}
+    .mobile-filters-btn, .mobile-columns-btn, .mobile-export-btn{display:inline-flex; margin-bottom:0; flex:1; justify-content:center; padding:10px 8px; font-size:12.5px;}
+    .export-top-btn{display:none;}
+    .sidebar{
+      display:block; position:fixed; top:0; left:0; height:100vh; width:86vw; max-width:340px;
+      z-index:60; transform:translateX(-100%); transition:transform .25s ease;
+      box-shadow:2px 0 24px rgba(0,0,0,.25); background:var(--cream);
+    }
+    .layout.mobile-sidebar-open .sidebar{transform:translateX(0);}
+    .layout.mobile-sidebar-open .sidebar-backdrop{
+      display:block; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:55;
+    }
+    .layout.detail-mode .mobile-toolbar-row{display:none;}
+    .column-picker{display:none;}
+    .column-picker.mobile-open{display:flex;}
+    table{font-size:11.5px;}
+    tbody td{padding:7px 6px;}
+    .detail-grid{grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));}
+    .detail-name{font-size:19px;}
+    .type-bar-label{flex-basis:90px; font-size:10.5px;}
+    .type-bar-desc{flex-basis:50px; font-size:9px;}
+    .type-bar-val{flex-basis:36px; font-size:10.5px;}
+    .detail-meta{gap:10px; font-size:12px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sire Selector</h1>
+  <p>Rank bulls against your breeding priorities. Adjust the sliders to match what matters for your farm and the list re-ranks. Star candidates to build your own list.</p>
+</header>
+
+<div class="layout" id="layout">
+  <div class="mobile-toolbar-row">
+    <button class="mobile-filters-btn" id="mobileFiltersBtn">☰ Filters and Weightings</button>
+    <button class="mobile-columns-btn" id="mobileColumnsBtn">☰ Columns</button>
+    <button class="mobile-export-btn" id="mobileExportBtn">☰ Export</button>
+  </div>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="main"></main>
+</div>
+
+
+<script>
+// Bull data now lives in bulls_1.json (fetched below) instead of being
+// embedded inline — keeps this HTML file small and lets the browser cache
+// the dataset across visits. Populated once init() below resolves; nothing
+// that runs before that point should assume BULLS is non-empty.
+let BULLS = [];
+
+// ---------- Configuration ----------
+// Breed averages, computed from the 105 bulls in HO_2604_sires_avail.xlsx
+// (the "available bulls" file) that meet the reference-population criteria:
+// NM Rel >= 85% and birth date after 2020-04-01. This is both the averaging
+// basis AND the pool of bulls shown in the app. Note this reference
+// population is much smaller than the full-catalogue version this app used
+// previously (579 bulls), since HO_2604_sires_avail.xlsx is pre-filtered to
+// only currently-available bulls (2,233 total, vs. 27,158 before).
+const AVG = {
+  fat:73.8095, pro:42.6952, milk:950.9905, dpr:-0.9324, sce:1.3295, liv:0.0305,
+  mas:1.1743, pl:2.6543, scs:2.8854, rpa:0.0315, ucl:0.3116, tlg:-0.2789,
+  cw:-1.4095, bd:-2.4667, sta:0.0471, hhrating:100.6571, rfi:-17.0857,
+  // ruh/ruw: standard higher-is-better type traits, averaged the normal way.
+  // ftp/rtp have no meaningful "average is normal" framing here since their
+  // target is a fixed optimum of 0, not the population mean — see MAD note
+  // below and the deviation-scoring branch in computeScore().
+  ruh:0.7447, ruw:0.9951,
+  // msprating: CDN-style rating trait like hhrating/cw/bd — averaged normally.
+  msprating:100.7810,
+  // trw: standard type trait, averaged normally.
+  trw:0.6243,
+  // 8 new linear type traits (matching the standard US linear type list),
+  // averaged normally like the other type traits above.
+  str:-0.1570, dfm:0.6908, fta:-0.0156, rls:0.2294, fua:0.4549, udp:0.1693, rlr:-0.0197, fls:0.1733,
+  // Traits that were previously display/filter-only, now fully scored per
+  // request — averaged normally like every other standard trait above.
+  met:1.2962, rpl:0.0790, dab:-0.0743, ket:-0.0390, mfv:-0.0476, efc:2.7019,
+  hlv:0.1857, fs:70.0000, dce:1.6000, ssb:3.6400, dsb:3.7533, hcr:1.0810,
+  ccr:0.1352, fatpct:0.1283, propct:0.0435
+};
+
+// Mean absolute deviation of each trait from AVG, computed from the same
+// 105-bull reference population:
+//   contribution_i = |weight_i| x mean(|trait_i - AVG_i|)
+// so a trait's % share of the total = its % share of the score's actual
+// average swing across real bulls, not just its raw weight number.
+const MAD = {
+  fat:19.4259, pro:10.4642, milk:501.4957, dpr:1.0041, sce:0.2486, liv:1.5556,
+  mas:1.1512, pl:1.0884, scs:0.1210, rpa:0.9204, ucl:0.7193, tlg:0.5068,
+  cw:4.3978, bd:3.3232, sta:0.8557, hhrating:3.4569, rfi:69.0993,
+  // a2: not a continuous trait — MAD here is the mean absolute value of a
+  // +1/-1/0 indicator (A2A2=+1, A1A1=-1, else 0) across the 105-bull
+  // reference population (72 A2A2, 5 A1A1), so it slots into the same
+  // weight = SIGN * (pct/100 * K) / MAD formula as every other trait.
+  a2:0.7333,
+  // ruh/ruw: standard traits, MAD is the usual mean(|trait - AVG|).
+  ruh:0.7987, ruw:0.8512,
+  // ftp/rtp: these have a fixed optimum of 0 (deviation in either direction
+  // is penalized — see the deviation:true traits below), so their MAD is
+  // mean(|trait - 0|) instead of mean(|trait - AVG|), computed from the same
+  // 105-bull reference population. This keeps them on the same weight-share
+  // footing as every other trait despite not being centered on the average.
+  ftp:0.6205, rtp:0.7818,
+  // msprating: CDN-style rating trait like hhrating/cw/bd — standard MAD from AVG.
+  msprating:2.6843,
+  // trw: standard type trait, standard MAD from AVG.
+  trw:0.7143,
+  // 8 new linear type traits, standard MAD from AVG.
+  str:0.7856, dfm:0.6676, fta:0.7877, rls:0.7687, fua:0.8331, udp:0.8039, rlr:0.9136, fls:0.6575,
+  // Same population, standard MAD from AVG, for the newly-scored traits.
+  met:0.6804, rpl:0.4659, dab:0.4164, ket:0.8176, mfv:0.0851, efc:1.9291,
+  hlv:0.4370, fs:148.2476, dce:0.2743, ssb:0.3211, dsb:0.5055, hcr:1.1468,
+  ccr:1.2826, fatpct:0.0956, propct:0.0413,
+};
+
+// Calibration constant, chosen so the default percentages reproduce
+// sensible weight magnitudes across traits using this population's own
+// MAD values.
+const K = 201.7223;
+
+// MAD computed from a fixed optimum of 0 (not the population average) for
+// traits that can be toggled into symmetric "deviation" scoring — same
+// 105-bull reference population, same style as ftp/rtp's own MAD values.
+// Only sta and rpa are toggleable today; ftp/rtp are permanently deviation
+// traits and already use this style via their entries in MAD above.
+const DEV_MAD = { sta:0.8536, rpa:0.9176 };
+const TOGGLEABLE_DEVIATION = { sta:true, rpa:true };
+
+// Default is the original one-directional setup for sta and rpa (matching
+// RDFL, the app's default preset): reward short/penalize tall for
+// stature, reward sloped/penalize high pins for rump angle. Unchecking
+// either switches that trait to symmetric/deviation scoring instead
+// (0 = optimum, penalized either direction, same shape as ftp/rtp) — see
+// SIGN.rpa below for the sign convention this depends on.
+let useOriginalDirection = { sta:true, rpa:true };
+
+// Direction each trait pulls the score (fixed, not user-adjustable — a
+// percentage slider sets IMPORTANCE/magnitude only; it says nothing about
+// which direction is desirable, so that stays a modelling constant instead
+// of a dial, except for sta/rpa which have their own toggle above).
+const SIGN = {
+  fat:1, pro:1, milk:-1, dpr:1, sce:-1, liv:1, mas:1, pl:1, scs:-1,
+  rpa:1, ucl:1, tlg:1, cw:1, bd:1, sta:-1, hhrating:1, rfi:-1, a2:1,
+  ruh:1, ruw:1, msprating:1, trw:1,
+  // The 8 traits below are simple linear (higher = better) here for
+  // consistency with the rest of the model, same as ruh/ruw/trw above.
+  // Worth flagging: several of these (leg-set and foot-angle traits
+  // especially) have a real-world curvilinear ideal — too straight or too
+  // sickled is bad — rather than "more is always better". This app doesn't
+  // model that nuance for these traits (only sta/rpa/ftp/rtp get the
+  // zero-optimum deviation treatment), so treat their weighting as a rough
+  // linear proxy, not a precise curvilinear-optimum score.
+  str:1, dfm:1, fta:1, rls:1, fua:1, udp:1, rlr:1, fls:1,
+  // Newly-scored traits. met/rpl/dab/ket/mfv (health-event resistance),
+  // efc/hlv/hcr/ccr (fertility/livability), fs (feed saved), and
+  // fatpct/propct (component %) are all higher-is-better. dce/ssb/dsb
+  // follow the same lower-is-better convention as sce above (easier
+  // calving / fewer stillbirths = better).
+  met:1, rpl:1, dab:1, ket:1, mfv:1, efc:1, hlv:1, fs:1, hcr:1, ccr:1,
+  fatpct:1, propct:1, dce:-1, ssb:-1, dsb:-1,
+  // ftp/rtp are deviation traits (see TRAITS below): SIGN here just means
+  // "more deviation = -1 direction", i.e. always subtracts from the score
+  // as |value| grows, regardless of which way the value points.
+  ftp:-1, rtp:-1,
+};
+
+// Trait metadata: label, group, default % share of total absolute
+// contribution, description.
+const TRAITS = [
+  {key:'fat', label:'Fat', group:'Production', defPct:16.68, source:'core',
+   desc:''},
+  {key:'pro', label:'Protein', group:'Production', defPct:9.13, source:'core',
+   desc:''},
+  {key:'milk', label:'Milk', group:'Production', defPct:7.15, source:'core',
+   desc:''},
+  {key:'fatpct', label:'Fat % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
+   desc:''},
+  {key:'propct', label:'Pro % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
+   desc:''},
+
+  {key:'dpr', label:'Daughter Pregnancy Rate (DPR)', group:'Health and Efficiency', subgroup:'Fertility', defPct:5.53, source:'core',
+   desc:''},
+  {key:'sce', label:'Sire Calving Ease (SCE)', group:'Health and Efficiency', subgroup:'Fertility', defPct:2.65, source:'core',
+   desc:''},
+  {key:'liv', label:'Cow Livability (LIV)', group:'Health and Efficiency', subgroup:'Livability', defPct:4.66, source:'core',
+   desc:''},
+  {key:'mas', label:'Mastitis Resistance (MAS)', group:'Health and Efficiency', subgroup:'Health', defPct:6.36, source:'core',
+   desc:''},
+  {key:'pl', label:'Productive Life (PL)', group:'Health and Efficiency', subgroup:'Livability', defPct:0, source:'added',
+   desc:''},
+  {key:'scs', label:'Somatic Cell Score (SCS)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'rfi', label:'Residual Feed Intake (RFI)', group:'Health and Efficiency', subgroup:'Efficiency', defPct:6.08, source:'core',
+   desc:''},
+  {key:'fs', label:'Feed Saved (FS)', group:'Health and Efficiency', subgroup:'Efficiency', defPct:0, source:'added',
+   desc:'Combines body size and RFI.'},
+
+  {key:'efc', label:'Early First Calving (EFC)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'dce', label:'Daughter Calving Ease (DCE)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'ssb', label:'Sire Stillbirth (SSB)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'dsb', label:'Daughter Stillbirth (DSB)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'hcr', label:'Heifer Conception Rate (HCR)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'ccr', label:'Cow Conception Rate (CCR)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+
+  {key:'hlv', label:'Heifer Livability (HLV)', group:'Health and Efficiency', subgroup:'Livability', defPct:0, source:'added',
+   desc:''},
+
+  {key:'met', label:'Metritis Resistance (MET)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'rpl', label:'Retained Placenta Resistance (RPL)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'dab', label:'Displaced Abomasum (DA)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'ket', label:'Ketosis (KETO)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'mfv', label:'Milk Fever (MFV)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'hhrating', label:'Hoof Health -CDN (HH)', group:'Health and Efficiency', subgroup:'Health', defPct:6.89, source:'core',
+   desc:''},
+  {key:'msprating', label:'Milking Speed -CDN (MSP)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+
+  {key:'sta', label:'Stature (STA)', group:'Type & Conformation', defPct:4.16, source:'core',
+   toggleLabel:'Reward short, penalize tall',
+   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'str', label:'Strength (STR)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'dfm', label:'Dairy Form (DFM)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'rpa', label:'Rump Angle (RPA)', group:'Type & Conformation', defPct:3.96, source:'core',
+   toggleLabel:'Reward sloped, penalize high pins',
+   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'trw', label:'Thurl Width (TRW)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'rls', label:'Rear Legs-Side (RLS)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'rlr', label:'Rear Legs-Rear (RLR)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'fta', label:'Foot Angle (FTA)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'fls', label:'Feet & Legs Score (FLS)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'fua', label:'Fore Udder Attachment (FUA)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'ruh', label:'Rear Udder Height (RUH)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'ruw', label:'Rear Udder Width (RUW)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'ucl', label:'Udder Cleft (UCL)', group:'Type & Conformation', defPct:5.44, source:'core',
+   desc:''},
+  {key:'udp', label:'Udder Depth (UDP)', group:'Type & Conformation', defPct:0, source:'added',
+   desc:''},
+  {key:'ftp', label:'Front Teat Placement (FTP)', group:'Type & Conformation', defPct:0, source:'added', deviation:true,
+   desc:'Any deviation from 0 reduces score.'},
+  {key:'rtp', label:'Rear Teat Placement (RTP)', group:'Type & Conformation', defPct:0, source:'added', deviation:true,
+   desc:'Any deviation from 0 reduces score.'},
+  {key:'tlg', label:'Teat Length (TLG)', group:'Type & Conformation', defPct:3.40, source:'core',
+   desc:''},
+
+  {key:'cw', label:'Chest Width -CDN (CW)', group:'Type & Conformation', defPct:7.18, source:'core',
+   desc:''},
+  {key:'bd', label:'Body Depth -CDN (BD)', group:'Type & Conformation', defPct:5.66, source:'core',
+   desc:''},
+
+  {key:'a2', label:'Beta Casein', group:'Genetics', defPct:0, source:'derived',
+   desc:'Rewards A2A2 and penalizes A1A1.'},
+];
+
+// Traits that show up on the bull detail page and get a range/genotype
+// filter in the sidebar, but are NOT part of the scoring model — no
+// importance slider, no weight, no AVG/MAD/SIGN entry. kind:'genotype'
+// traits (kappa) are categorical strings filtered by exact match via
+// checkboxes rather than a numeric min/max.
+const EXTRA_TRAITS = [
+  {key:'kappa', label:'Kappa Casein', group:'Genetics', kind:'genotype', genotypes:['AA','AB','AE','BB','BE','EE'],
+   desc:'Kappa casein genotype. Categorical (not a numeric PTA), so it\'s filtered by genotype checkboxes rather than a min/max range. Not part of the scoring model.'},
+  {key:'genrecessive', label:'Genetic Recessive', group:'Genetics', kind:'text',
+   desc:'From the spreadsheet\'s FertRecessive column — HHC/HMW codes specifically. No longer has its own filter checkboxes; a bull with either code is now folded into "Exclude genetic recessive carriers" alongside the other haplotype flags (HH0–HH6, HHM, HHD). Not part of the scoring model.'},
+  {key:'polled', label:'Polled', group:'Genetics', kind:'boolean',
+   desc:'True if the name carries a PP/P suffix, the FertRecessive column says HHP, or the raw HHP allele-copy count is 1 or 2. Filtered via the checkbox below, not a range/genotype list. Not part of the scoring model.'},
+  {key:'red', label:'Red Factor', group:'Genetics', kind:'boolean',
+   desc:'True if the name carries a RED/RC suffix, the FertRecessive column says HHR, or the raw HHR allele-copy count is 1 or 2. Filtered via the checkbox below, not a range/genotype list. Not part of the scoring model.'},
+  {key:'sirestack', label:'Sire Stack', group:'Genetics', kind:'text',
+   desc:'The resolved pedigree sire stack, from the spreadsheet\'s "Sire Stack Final" column. Not part of the scoring model, and not filterable.'},
+];
+
+// Debounce the expensive part (re-scoring + re-sorting 27k+ bulls and
+// rebuilding the results table) so it only runs once dragging pauses,
+// instead of on every tick of a slider drag. The slider's own value label
+// still updates instantly via direct DOM text, so it never feels laggy to
+// hold and drag — only the table catches up a beat later. This matters more
+// as more traits get added (each extra trait adds compute per pass), and
+// especially once sliders start combining multiple traits into one control.
+function debounce(fn, delay=120){
+  let timer = null;
+  return (...args) => {
+    if(timer !== null) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn(...args); }, delay);
+  };
+}
+const debouncedRenderMain = debounce(() => renderMain(), 120);
+const debouncedRender = debounce(() => render(), 120);
+
+// Percentages are IMPORTANCE dials only (magnitude, not direction).
+// Whatever the sliders currently add up to, each trait's actual weight is
+// scaled by its share of that total, so they don't need to be manually kept
+// at exactly 100%.
+function pctToWeights(pcts){
+  const total = Object.values(pcts).reduce((a,b)=>a+b, 0) || 1;
+  const weights = {};
+  for(const t of TRAITS){
+    const normalizedPct = pcts[t.key] / total * 100;
+    const symmetric = TOGGLEABLE_DEVIATION[t.key] && !useOriginalDirection[t.key];
+    if(symmetric){
+      // Zero-optimum deviation scoring (same shape as ftp/rtp): always
+      // penalizes magnitude, so the sign is fixed at -1 regardless of the
+      // trait's normal SIGN entry, and MAD is measured from 0, not AVG.
+      weights[t.key] = -1 * (normalizedPct/100 * K) / DEV_MAD[t.key];
+    } else {
+      weights[t.key] = SIGN[t.key] * (normalizedPct/100 * K) / MAD[t.key];
+    }
+  }
+  return weights;
+}
+
+// % of a given pcts object's total allocated to each trait group (Production,
+// Health and Efficiency, Type & Conformation, Genetics) — same "share of
+// whatever they add up to" logic as pctToWeights, just grouped instead of
+// per-trait. Used to show what each preset actually emphasizes at a glance.
+function groupBreakdown(pcts){
+  const total = Object.values(pcts).reduce((a,b)=>a+b, 0) || 1;
+  const byGroup = {};
+  for(const t of TRAITS){
+    const v = pcts[t.key] ?? 0;
+    byGroup[t.group] = (byGroup[t.group] ?? 0) + v;
+  }
+  const pctByGroup = {};
+  for(const g in byGroup) pctByGroup[g] = byGroup[g] / total * 100;
+  return pctByGroup;
+}
+
+// Each preset's per-trait percentages are hand-set (not derived from defPct)
+// so the group totals hit exact targets:
+//   balanced: 35% Production / 35% Health and Efficiency / 30% Type & Conformation
+//   production: 60 / 20 / 20   health: 20 / 60 / 20   type: 20 / 20 / 60
+// Within each group, traits keep the same relative proportions as their
+// original hand-tuned defaults (or the prior preset), just rescaled so the
+// group hits its target. PL, SCS, and A2A2 are 0 in every preset — all
+// opt-in only.
+const PRESETS = {
+  balanced:  {label:'Balanced', pcts: {fat:17.71,pro:9.70,milk:7.59,fatpct:0,propct:0,dpr:7.66,sce:3.67,liv:6.45,mas:8.81,rfi:8.42,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:3.24,ucl:4.45,tlg:2.78,cw:5.87,bd:4.63,sta:3.40,hhrating:5.63,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0}},
+  production:{label:'Production focus', pcts: {fat:29.47,pro:23.16,milk:7.37,fatpct:0,propct:0,dpr:5.33,sce:4.00,liv:4.00,mas:4.00,rfi:2.67,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:2.86,ucl:4.29,tlg:2.86,cw:2.86,bd:2.86,sta:2.86,hhrating:1.43,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0}},
+  // Health & fertility focus: its Type & Conformation entries
+  // (rpa/ucl/tlg/cw/bd/sta/hhrating) are rescaled by 18/20 to make room for
+  // msprating (2.00) inside that group's 20% target, so Production 20 /
+  // Health and Efficiency 60 / Type & Conformation 20 still holds exactly.
+  health:    {label:'Health and efficiency focus', pcts: {fat:10.00,pro:10.00,milk:0,fatpct:0,propct:0,dpr:19.35,sce:14.52,liv:10.65,mas:14.52,rfi:0.97,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:2.40,ucl:2.40,tlg:1.20,cw:1.20,bd:1.20,sta:2.40,hhrating:7.20,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:2.00,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0}},
+  // Type & conformation focus: rpa/ucl/tlg/cw/bd/sta/hhrating/ruh/ruw/ftp/rtp
+  // rescaled by 57/60 to make room for trw (3.00) inside the group's 60%
+  // target, so Production 20 / Health and Efficiency 20 / Type & Conformation
+  // 60 still holds exactly. msprating stays at 0 here (only weighted in
+  // Health and Efficiency).
+  // Type & conformation focus: hoof health is now excluded (0%) here since
+  // it's grouped under Health and Efficiency, not Type & Conformation.
+  // Strength/Dairy Form/Rear Legs-Side/Rear Legs-Rear/Foot Angle/Fore Udder
+  // Attachment/Udder Depth get 2.00 each (14.00 total); the rest of the
+  // Type & Conformation traits are rescaled by 0.8176 to make room, so the
+  // group still totals exactly 60%.
+  type:      {label:'Type & conformation focus', pcts: {fat:10.00,pro:10.00,milk:0,fatpct:0,propct:0,dpr:5.00,sce:6.67,liv:3.33,mas:3.33,rfi:1.67,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:0,rpa:7.15,ucl:9.70,tlg:6.13,cw:3.06,bd:3.06,sta:3.57,pl:0,scs:0,a2:0,ruh:3.11,ruw:3.11,ftp:2.33,rtp:2.33,msprating:0,trw:2.45,str:2.00,dfm:2.00,fta:2.00,rls:2.00,fua:2.00,udp:2.00,rlr:2.00,fls:0}},
+
+  // RDFL: same relative weights as Balanced, just rescaled so they sum to
+  // exactly 100.00 (Balanced's own raw numbers add up to 100.01 — harmless
+  // for scoring since pctToWeights always normalizes by whatever the total
+  // currently is, but this preset's numbers are exact on purpose).
+  // Also bundles in filter/direction settings, unlike every other preset
+  // here which only touches importance weights: 70% min reliability, A2A2
+  // only, clones and genetic recessive carriers excluded, and only
+  // Select Sires/Semex/ST Genetics studs. Rump Angle and Stature use their
+  // original one-directional scoring (reward sloped/penalize high pins;
+  // reward short/penalize tall) — this is also the app's overall default.
+  // RDFL: Fat/Protein/Milk at 15/9/6; DPR, SCE, LIV, MAS, RFI, Hoof Health,
+  // and Milking Speed at 5 each; Stature, Rump Angle, Rear Legs-Side, Udder
+  // Depth, Teat Length, Chest Width, and Body Depth at 5 each. Beta Casein
+  // (A2) carries no weighting — the a2Only filter below still restricts
+  // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
+  rdfl:      {label:'RDFL', pcts: {fat:15,pro:9,milk:6,fatpct:0,propct:0,dpr:5,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
+    filters: { minRel:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
+    direction: { rpa:true, sta:true } },
+};
+
+let pcts = {...PRESETS.rdfl.pcts};
+let filters = {a2Only:true, excludeHaplotype:true, excludeClones:true, minRel:70, ranges:{}, studGroups:{select:true, semex:true, stg:true}, genotypeFilters:{}, searchText:'', polledOnly:false, redOnly:false};
+// Health and Efficiency and Type & Conformation have the most sliders/filters
+// of any groups, so their bodies start collapsed behind an expander to keep
+// the sidebar manageable on first load; Production stays always expanded.
+let expandedGroups = { 'Health and Efficiency': false, 'Type & Conformation': false };
+let shortlist = new Set();
+let sortKey = 'score', sortDir = -1;
+let activePreset = 'rdfl';
+
+// Stud/AI-company groupings by the first 3 digits of the NAAB code.
+const STUD_GROUPS = [
+  {key:'select',  label:'Select Sires', codes:['007','014','250','614','507','550','744','644','009']},
+  {key:'abs',     label:'ABS',          codes:['029','094']},
+  {key:'alta',    label:'Alta',         codes:['011']},
+  {key:'semex',   label:'Semex',        codes:['200','777']},
+  {key:'stg',     label:'ST Genetics',  codes:['551','522','643']},
+];
+const STUD_NAMED_CODES = new Set(STUD_GROUPS.filter(g => g.codes).flatMap(g => g.codes));
+
+function studPrefix(b){
+  return typeof b.naab === 'string' ? b.naab.slice(0,3) : null;
+}
+function matchesStudGroup(b, group){
+  const prefix = studPrefix(b);
+  if(!prefix) return false;
+  return group.codes ? group.codes.includes(prefix) : !STUD_NAMED_CODES.has(prefix);
+}
+
+// Each AI company's bull-detail page uses its own URL scheme and its own
+// take on the NAAB code, so these are hand-built per company rather than
+// one shared template:
+//   Select Sires / ABS — the 3-digit stud prefix has its leading zeros
+//     stripped (e.g. "007HO18093" -> "7HO18093").
+//   Alta / ST Genetics — the NAAB code is used exactly as-is.
+//   Semex — the whole NAAB code gets ONE extra leading zero tacked onto the
+//     front (e.g. "777HO13424" -> "0777HO13424"), which is different from
+//     stripping zeros from the prefix.
+//   Genex / ST Genetics — need a URL-safe slug of the bull's name (spaces
+//     to hyphens, lowercased).
+function stripPrefixZeros(naab){
+  return String(parseInt(naab.slice(0,3), 10)) + naab.slice(3);
+}
+function nameSlug(name){
+  return String(name).toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+const STUD_LINK_BUILDERS = {
+  select: b => `https://www.selectsires.com/bull-pages?naab=${stripPrefixZeros(b.naab)}`,
+  abs:    b => `https://absbullsearch.absglobal.com/details/bull/${stripPrefixZeros(b.naab)}/D/USA/HO/EN/GBR/GBR?source=search`,
+  alta:   b => `https://bullsearch.altagenetics.com/us/BS/Bull/${b.naab}`,
+  genex:  b => `https://catalog.genex.coop/us/dairy/${nameSlug(b.name)}`,
+  semex:  b => `https://www.semex.com/bull/0${b.naab}&lang=en&data=tpi`,
+  stg:    b => `https://stgen.com/sire-directory/dairy-bull-usa.aspx?code=${b.naab}&language=english&title=stgen-${nameSlug(b.name)}`,
+};
+// Returns {url, company} for bulls whose stud is one of the six named
+// companies above, or null for "Other" / unrecognized prefixes / bulls
+// with no NAAB code at all.
+function bullExternalLink(b){
+  if(typeof b.naab !== 'string' || !b.naab) return null;
+  const prefix = studPrefix(b);
+  const group = STUD_GROUPS.find(g => g.codes && g.codes.includes(prefix));
+  if(!group || !STUD_LINK_BUILDERS[group.key]) return null;
+  return { url: STUD_LINK_BUILDERS[group.key](b), company: group.label };
+}
+
+function computeScore(b, weights){
+  let s = 0;
+  for(const t of TRAITS){
+    if(t.key === 'a2'){
+      if(b.a2 === 'A2A2') s += weights.a2;
+      else if(b.a2 === 'A1A1') s -= weights.a2;
+      continue;
+    }
+    const v = b[t.key];
+    if(typeof v !== 'number') continue;
+    const symmetric = t.deviation || (TOGGLEABLE_DEVIATION[t.key] && !useOriginalDirection[t.key]);
+    if(symmetric){
+      // Optimum is 0, not the population average — deviation in either
+      // direction is penalized equally. weights[t.key] is already negative
+      // (SIGN -1 or the fixed deviation sign), so this subtracts from the
+      // score as |v| grows.
+      s += weights[t.key] * Math.abs(v);
+      continue;
+    }
+    const avg = AVG[t.key] ?? 0;
+    s += weights[t.key] * (v - avg);
+  }
+  return s;
+}
+
+function passesFilters(b){
+  if(filters.a2Only && b.a2 !== 'A2A2') return false;
+  if(filters.polledOnly && !b.polled) return false;
+  if(filters.redOnly && !b.red) return false;
+  if(filters.excludeHaplotype && b.haplotype_carrier) return false;
+  if(filters.excludeClones && typeof b.name === 'string' && b.name.endsWith('-ETN')) return false;
+  if(filters.minRel && (b.rel ?? 0) < filters.minRel) return false;
+  // Free-text search against name and NAAB code — case-insensitive substring
+  // match against either field.
+  if(filters.searchText){
+    const q = filters.searchText.trim().toLowerCase();
+    if(q){
+      const nameMatch = typeof b.name === 'string' && b.name.toLowerCase().includes(q);
+      const naabMatch = typeof b.naab === 'string' && b.naab.toLowerCase().includes(q);
+      if(!nameMatch && !naabMatch) return false;
+    }
+  }
+  // Stud/AI-company checkboxes are OR'd together: if any are checked, a bull
+  // must match at least one of them to pass; if none are checked, no filtering.
+  const checkedStudGroups = STUD_GROUPS.filter(g => filters.studGroups[g.key]);
+  if(checkedStudGroups.length > 0 && !checkedStudGroups.some(g => matchesStudGroup(b, g))) return false;
+  // Genotype checkboxes (Kappa Casein, Genetic Recessive, Polled) — same
+  // OR-within-a-trait logic as stud groups, applied independently per trait.
+  for(const traitKey in filters.genotypeFilters){
+    const checked = Object.keys(filters.genotypeFilters[traitKey]).filter(g => filters.genotypeFilters[traitKey][g]);
+    if(checked.length > 0 && !checked.includes(b[traitKey])) return false;
+  }
+  // Per-trait min/max range filters (raw trait value, not the score) —
+  // a bull is excluded if it falls outside any active range, or if its
+  // value for that trait is missing (can't confirm it's in range).
+  for(const key in filters.ranges){
+    const r = filters.ranges[key];
+    if(r.min == null && r.max == null) continue;
+    const v = b[key];
+    if(typeof v !== 'number') return false;
+    if(r.min != null && v < r.min) return false;
+    if(r.max != null && v > r.max) return false;
+  }
+  return true;
+}
+
+function getFiltered(){
+  const weights = pctToWeights(pcts);
+  return BULLS.filter(passesFilters).map(b => ({...b, score: computeScore(b, weights)}));
+}
+
+function fmt(v, d=1){
+  if(v === null || v === undefined || v === '' ) return '—';
+  if(typeof v === 'number') return v.toFixed(d);
+  return v;
+}
+// Decimal precision per trait, matching what the source spreadsheet
+// actually carries — whole-number traits (fat, pro, milk, rfi, hoof health,
+// milking speed) get 0 decimals so no fake ".00" gets added; PTA-deviation
+// traits keep their natural 1–2 decimal places. Same mapping the results
+// table already uses per-column.
+const TRAIT_DECIMALS = {
+  fat:0, pro:0, milk:0, dpr:1, sce:1, liv:1, mas:1, pl:1, scs:2,
+  rpa:2, ucl:2, tlg:2, cw:0, bd:0, sta:2, hhrating:0, msprating:0, rfi:0,
+  ruh:2, ruw:2, ftp:2, rtp:2,
+  met:1, rpl:1, efc:1, hlv:1, fs:0, dce:1, ssb:1, dsb:1, hcr:1, ccr:1, trw:2,
+  str:2, dfm:2, fta:2, rls:2, fua:2, udp:2, rlr:2, fls:2,
+  fatpct:2, propct:2, dab:1, ket:1, mfv:1,
+};
+
+// ---------- Sidebar rendering ----------
+function renderSidebar(){
+  const groups = [...new Set(TRAITS.map(t=>t.group))];
+  const el = document.getElementById('sidebar');
+  const pctTotal = Object.values(pcts).reduce((a,b)=>a+b, 0);
+  const activeRangeCount = Object.values(filters.ranges).filter(r => r.min != null || r.max != null).length;
+  el.innerHTML = `
+    <div class="panel">
+      <h2>Presets</h2>
+      <div class="presets">
+        ${Object.entries(PRESETS).map(([k,p]) => {
+          const bd = groupBreakdown(p.pcts);
+          return `<div class="preset-item">
+            <button class="preset-btn ${activePreset===k?'active':''}" data-preset="${k}">${p.label}</button>
+            <div class="preset-breakdown-line">
+              P ${(bd['Production']??0).toFixed(0)}% &middot;
+              H&amp;E ${(bd['Health and Efficiency']??0).toFixed(0)}% &middot;
+              T&amp;C ${(bd['Type & Conformation']??0).toFixed(0)}%
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <button class="reset-link" id="resetWeights">Reset to preset</button>
+    </div>
+
+    <div class="panel">
+      <h2>Filters</h2>
+      <div class="slider-row">
+        <div class="top"><span class="name">Search name / NAAB code</span></div>
+        <input type="text" id="f_search" placeholder="e.g. Denovo or 007HO18093" value="${filters.searchText}" style="width:100%;">
+      </div>
+      <p class="foot-note">Per-trait range filters (exclude sires outside a min/max) live under each trait's slider below. ${activeRangeCount>0 ? `<b>${activeRangeCount} active.</b>` : 'None active.'} A bull missing data for a filtered trait is excluded, since it can't be confirmed in range.</p>
+      ${activeRangeCount>0 ? `<button class="reset-link" id="clearRanges">Clear all range filters</button>` : ''}
+    </div>
+
+    <div class="panel">
+      <h2>Stud / AI Company</h2>
+      ${STUD_GROUPS.map(g => `
+        <label class="check">
+          <input type="checkbox" data-studkey="${g.key}" ${filters.studGroups[g.key]?'checked':''}>
+          ${g.label}${g.codes ? ` <span class="tag muted">${g.codes.join(', ')}</span>` : ''}
+        </label>
+      `).join('')}
+      <p class="foot-note">Based on the first 3 digits of the NAAB code. Check none to show every stud; check several to show any of them (OR, not AND).</p>
+    </div>
+
+    <div class="panel">
+      <h2>Genetics</h2>
+      <div class="slider-row">
+        <div class="top"><span class="name">Min reliability (Rel%)</span><span class="val" id="val_minrel">${filters.minRel}</span></div>
+        <input type="range" id="f_rel" min="0" max="90" step="5" value="${filters.minRel}">
+      </div>
+      ${(() => { const t = TRAITS.find(tr => tr.key === 'a2'); return `
+        <div class="slider-row">
+          <div class="top"><span class="name">${t.label}</span><span class="val" id="val_${t.key}">${pcts[t.key].toFixed(1)}%</span></div>
+          <label class="check" style="margin-bottom:6px;"><input type="checkbox" id="f_a2" ${filters.a2Only?'checked':''}> A2A2 only (filter)</label>
+          <input type="range" data-key="${t.key}" min="0" max="35" step="0.1" value="${pcts[t.key]}">
+          <div class="desc">${t.desc}</div>
+        </div>`; })()}
+      ${EXTRA_TRAITS.filter(t => t.group === 'Genetics' && t.kind === 'genotype').map(t => `
+        <div class="slider-row">
+          <div class="top"><span class="name">${t.label}</span></div>
+          <div class="desc">${t.desc}</div>
+          <div class="genotype-checks">
+            ${t.genotypes.map(gt => `
+              <label class="check genotype-check">
+                <input type="checkbox" data-genotrait="${t.key}" data-genoval="${gt}" ${filters.genotypeFilters[t.key]?.[gt] ? 'checked' : ''}> ${gt}
+              </label>
+            `).join('')}
+          </div>
+        </div>`).join('')}
+      <label class="check" style="margin-top:10px;"><input type="checkbox" id="f_polled" ${filters.polledOnly?'checked':''}> Polled only</label>
+      <label class="check"><input type="checkbox" id="f_red" ${filters.redOnly?'checked':''}> Red factor only</label>
+      <label class="check" style="margin-top:10px;"><input type="checkbox" id="f_haplo" ${filters.excludeHaplotype?'checked':''}> Exclude genetic recessive carriers</label>
+      <label class="check"><input type="checkbox" id="f_clones" ${filters.excludeClones?'checked':''}> Exclude clones (name ends in -ETN)</label>
+    </div>
+
+    ${groups.filter(g => g !== 'Genetics').map(g => {
+      const isCollapsible = g === 'Health and Efficiency' || g === 'Type & Conformation';
+      const expanded = expandedGroups[g] !== false; // undefined/true = expanded; Health and Efficiency and Type & Conformation start false
+
+      const renderScoredRow = t => {
+        const r = filters.ranges[t.key] || {};
+        const hasRange = r.min != null || r.max != null;
+        const toggleable = TOGGLEABLE_DEVIATION[t.key];
+        return `
+        <div class="slider-row">
+          <div class="top"><span class="name">${t.label}</span><span class="val" id="val_${t.key}">${pcts[t.key].toFixed(1)}%</span></div>
+          <div class="desc">${t.desc}</div>
+          ${toggleable ? `
+          <label class="check direction-toggle">
+            <input type="checkbox" data-directionkey="${t.key}" ${useOriginalDirection[t.key]?'checked':''}>
+            ${t.toggleLabel}
+          </label>` : ''}
+          <input type="range" data-key="${t.key}" min="0" max="35" step="0.1" value="${pcts[t.key]}">
+          <div class="range-row">
+            <span class="range-label">Exclude outside range</span>
+            <div class="range-inputs">
+              <input type="number" step="any" class="range-min" data-rangekey="${t.key}" placeholder="min" value="${r.min ?? ''}">
+              <span>–</span>
+              <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
+              ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
+            </div>
+          </div>
+        </div>`;
+      };
+      const renderExtraRow = t => {
+        if(t.kind === 'genotype'){
+          return `
+          <div class="slider-row">
+            <div class="top"><span class="name">${t.label}</span></div>
+            <div class="desc">${t.desc}</div>
+            <div class="genotype-checks">
+              ${t.genotypes.map(gt => `
+                <label class="check genotype-check">
+                  <input type="checkbox" data-genotrait="${t.key}" data-genoval="${gt}" ${filters.genotypeFilters[t.key]?.[gt] ? 'checked' : ''}> ${gt}
+                </label>
+              `).join('')}
+            </div>
+          </div>`;
+        }
+        const r = filters.ranges[t.key] || {};
+        const hasRange = r.min != null || r.max != null;
+        return `
+        <div class="slider-row">
+          <div class="top"><span class="name">${t.label}</span></div>
+          <div class="desc">${t.desc}</div>
+          <div class="range-row">
+            <span class="range-label">Exclude outside range</span>
+            <div class="range-inputs">
+              <input type="number" step="any" class="range-min" data-rangekey="${t.key}" placeholder="min" value="${r.min ?? ''}">
+              <span>–</span>
+              <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
+              ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
+            </div>
+          </div>
+        </div>`;
+      };
+
+      let bodyHtml;
+      if(g === 'Health and Efficiency'){
+        // Sub-grouped into Livability / Fertility / Health / Efficiency,
+        // rather than one flat list — mirrors how Alta's bull page keeps
+        // these apart.
+        const SUBGROUP_ORDER = ['Livability', 'Fertility', 'Health', 'Efficiency'];
+        const combined = [
+          ...TRAITS.filter(t=>t.group===g).map(t => ({t, extra:false})),
+          ...EXTRA_TRAITS.filter(t=>t.group===g).map(t => ({t, extra:true})),
+        ];
+        bodyHtml = SUBGROUP_ORDER.map(sg => {
+          const items = combined.filter(x => x.t.subgroup === sg);
+          if(items.length === 0) return '';
+          return `<h3 class="sidebar-subgroup">${sg}</h3>` +
+            items.map(x => x.extra ? renderExtraRow(x.t) : renderScoredRow(x.t)).join('');
+        }).join('');
+      } else {
+        const scoredRows = TRAITS.filter(t=>t.group===g).map(renderScoredRow).join('');
+        const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
+        bodyHtml = scoredRows + extraRows;
+      }
+
+      return `
+    <div class="panel">
+      <h2>${g}</h2>
+      ${isCollapsible ? `<button class="expander-btn" data-expandkey="${g}">${expanded ? '▲ Hide filters & scales' : '▼ Show filters & scales'}</button>` : ''}
+      ${(!isCollapsible || expanded) ? bodyHtml : ''}
+    </div>`;
+    }).join('')}
+
+    <div class="panel">
+      <h2>Importance total <span class="count">(${pctTotal.toFixed(1)}%)</span></h2>
+      <p class="foot-note">Sliders don't need to total exactly 100 — every score uses each slider's <i>share</i> of whatever the current total is, so relative importance is what matters, not the raw total. Hit Normalize to see the actual percentages being used, rescaled to sum to 100%.</p>
+      <button class="btn secondary" id="normalizeBtn" style="width:100%; margin-top:8px;">Normalize to 100%</button>
+    </div>
+
+    <div class="panel shortlist-panel">
+      <h2>Your Shortlist <span class="count">(${shortlist.size})</span></h2>
+      <div id="shortlistBody"></div>
+    </div>
+    <p class="foot-note">Bulls, breed averages, and typical-spread figures are based on bulls with NM Rel ≥ 85% and birth date after 2020-04-01 (${BULLS.length} qualifying bulls) — a reference population large enough to compute stable averages. Beta Casein defaults to 0% in every preset — it's opt-in, not assumed. Each slider sets a trait's <i>importance</i> only. Direction (higher/lower is better) is fixed for most traits, except Stature and Rump Angle, which can be switched between symmetric (0 = optimum, deviation penalized either way) and one-directional scoring using the checkboxes under those two sliders.</p>
+  `;
+
+  document.querySelectorAll('.preset-btn').forEach(btn=>{
+    btn.onclick = () => {
+      activePreset = btn.dataset.preset;
+      const preset = PRESETS[activePreset];
+      pcts = {...preset.pcts};
+      // Most presets only touch importance weights. A preset can optionally
+      // also bundle filter/direction settings (currently only RDFL does) —
+      // apply those too when present, leaving everything else untouched.
+      if(preset.filters){
+        if('minRel' in preset.filters) filters.minRel = preset.filters.minRel;
+        if('a2Only' in preset.filters) filters.a2Only = preset.filters.a2Only;
+        if('excludeClones' in preset.filters) filters.excludeClones = preset.filters.excludeClones;
+        if('excludeHaplotype' in preset.filters) filters.excludeHaplotype = preset.filters.excludeHaplotype;
+        if(preset.filters.studGroups) filters.studGroups = {...preset.filters.studGroups};
+      }
+      if(preset.direction){
+        if('rpa' in preset.direction) useOriginalDirection.rpa = preset.direction.rpa;
+        if('sta' in preset.direction) useOriginalDirection.sta = preset.direction.sta;
+      }
+      render();
+    };
+  });
+  document.getElementById('resetWeights').onclick = () => { pcts = {...PRESETS[activePreset].pcts}; render(); };
+
+  document.getElementById('f_a2').onchange = e => { filters.a2Only = e.target.checked; render(); };
+  document.getElementById('f_polled').onchange = e => { filters.polledOnly = e.target.checked; render(); };
+  document.getElementById('f_red').onchange = e => { filters.redOnly = e.target.checked; render(); };
+  document.getElementById('f_haplo').onchange = e => { filters.excludeHaplotype = e.target.checked; render(); };
+  document.getElementById('f_clones').onchange = e => { filters.excludeClones = e.target.checked; render(); };
+  document.getElementById('f_search').oninput = e => {
+    filters.searchText = e.target.value;
+    debouncedRenderMain(); // don't rebuild the sidebar mid-keystroke, just re-filter the table
+  };
+  document.getElementById('f_rel').oninput = e => {
+    filters.minRel = +e.target.value;
+    document.getElementById('val_minrel').textContent = filters.minRel;
+    debouncedRenderMain();
+  };
+
+  document.querySelectorAll('input[type=range][data-key]').forEach(inp => {
+    inp.oninput = e => {
+      const k = e.target.dataset.key;
+      pcts[k] = +e.target.value;
+      document.getElementById('val_'+k).textContent = pcts[k].toFixed(1)+'%';
+      debouncedRenderMain(); // instant label, table catches up once dragging pauses
+    };
+  });
+
+  if(document.getElementById('clearRanges')){
+    document.getElementById('clearRanges').onclick = () => { filters.ranges = {}; render(); };
+  }
+  document.querySelectorAll('input[data-studkey]').forEach(inp => {
+    inp.onchange = e => { filters.studGroups[e.target.dataset.studkey] = e.target.checked; render(); };
+  });
+  document.querySelectorAll('input[data-directionkey]').forEach(inp => {
+    inp.onchange = e => { useOriginalDirection[e.target.dataset.directionkey] = e.target.checked; render(); };
+  });
+  document.querySelectorAll('button[data-expandkey]').forEach(btn => {
+    btn.onclick = () => {
+      const g = btn.dataset.expandkey;
+      const cur = expandedGroups[g] !== false; // current expanded state
+      expandedGroups[g] = !cur;
+      render();
+    };
+  });
+  document.querySelectorAll('input[data-genotrait]').forEach(inp => {
+    inp.onchange = e => {
+      const traitKey = e.target.dataset.genotrait;
+      const val = e.target.dataset.genoval;
+      if(!filters.genotypeFilters[traitKey]) filters.genotypeFilters[traitKey] = {};
+      filters.genotypeFilters[traitKey][val] = e.target.checked;
+      render();
+    };
+  });
+  document.querySelectorAll('input.range-min, input.range-max').forEach(inp => {
+    inp.oninput = e => {
+      const k = e.target.dataset.rangekey;
+      const isMin = e.target.classList.contains('range-min');
+      const val = e.target.value === '' ? null : +e.target.value;
+      if(!filters.ranges[k]) filters.ranges[k] = {min:null, max:null};
+      filters.ranges[k][isMin ? 'min' : 'max'] = val;
+      debouncedRenderMain(); // don't rebuild the sidebar mid-keystroke, just re-score the table
+    };
+  });
+  document.querySelectorAll('.range-clear').forEach(btn => {
+    btn.onclick = () => { delete filters.ranges[btn.dataset.rangekey]; render(); };
+  });
+
+  document.getElementById('normalizeBtn').onclick = () => {
+    const total = Object.values(pcts).reduce((a,b)=>a+b, 0) || 1;
+    for (const t of TRAITS) pcts[t.key] = Math.round(pcts[t.key] / total * 1000) / 10; // 1 decimal place, sums to ~100
+    render();
+  };
+
+  renderShortlistBody();
+}
+
+function renderShortlistBody(){
+  const body = document.getElementById('shortlistBody');
+  if(!body) return;
+  if(shortlist.size === 0){ body.innerHTML = `<div class="foot-note">Star bulls in the table to add them here.</div>`; return; }
+  const items = BULLS.filter(b => shortlist.has(b.naab || b.name));
+  body.innerHTML = items.map(b => `
+    <div class="shortlist-row">
+      <span>${b.name}</span>
+      <button class="rm" data-id="${b.naab||b.name}">remove</button>
+    </div>`).join('');
+  body.querySelectorAll('.rm').forEach(btn=>{
+    btn.onclick = () => { shortlist.delete(btn.dataset.id); render(); };
+  });
+}
+
+function exportShortlist(){
+  const weights = pctToWeights(pcts);
+  const items = BULLS.filter(b => shortlist.has(b.naab || b.name)).map(b=>({...b, score:computeScore(b, weights)}));
+  const cols = ['name','naab','reg','a2','rel','nm','fat','pro','milk','dpr','sce','liv','mas','pl','scs','rpa','ucl','tlg','cw','bd','sta','hhrating','msprating','rfi','ruh','ruw','ftp','rtp','score'];
+  const rows = [cols.join(',')].concat(items.map(b => cols.map(c => {
+    let v = c==='score' ? b.score.toFixed(1) : b[c];
+    if(v===undefined||v===null) v='';
+    v = String(v).replace(/"/g,'""');
+    return /[,"]/.test(v) ? `"${v}"` : v;
+  }).join(',')));
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'my_sire_shortlist.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- Main table rendering ----------
+// Always shown, in this order.
+// score and name are structural — always shown, never toggleable, always
+// the first two columns. Everything else is toggleable via the column
+// picker above the table; TOGGLEABLE_COLUMNS lists every option (including
+// the ones checked by default), so nothing is hidden from the picker.
+const TOGGLEABLE_COLUMNS = [
+  {key:'a2', label:'A2A2'},
+  {key:'rel', label:'Rel%', numeric:true, decimals:0},
+  {key:'nm', label:'NM$', numeric:true, decimals:0},
+  {key:'gm', label:'GM$', numeric:true, decimals:0},
+  {key:'cm', label:'CM$', numeric:true, decimals:0},
+  {key:'fm', label:'FM$', numeric:true, decimals:0},
+  {key:'tpi', label:'TPI', numeric:true, decimals:0},
+  {key:'fat', label:'Fat', numeric:true, decimals:0},
+  {key:'pro', label:'Pro', numeric:true, decimals:0},
+  {key:'milk', label:'Milk', numeric:true, decimals:0},
+  {key:'dpr', label:'DPR', numeric:true, decimals:1},
+  {key:'sce', label:'SCE', numeric:true, decimals:1},
+  {key:'liv', label:'LIV', numeric:true, decimals:1},
+  {key:'mas', label:'MAS', numeric:true, decimals:1},
+  {key:'pl', label:'PL', numeric:true, decimals:1},
+  {key:'scs', label:'SCS', numeric:true, decimals:2},
+  {key:'rpa', label:'RPA', numeric:true, decimals:2},
+  {key:'ucl', label:'UCL', numeric:true, decimals:2},
+  {key:'tlg', label:'TLG', numeric:true, decimals:2},
+  {key:'cw', label:'CW', numeric:true, decimals:0},
+  {key:'bd', label:'BD', numeric:true, decimals:0},
+  {key:'sta', label:'STA', numeric:true, decimals:2},
+  {key:'hhrating', label:'Hoof', numeric:true, decimals:0},
+  {key:'msprating', label:'MSP', numeric:true, decimals:0},
+  {key:'trw', label:'TRW', numeric:true, decimals:2},
+  {key:'rfi', label:'RFI', numeric:true, decimals:0},
+  {key:'ruh', label:'RUH', numeric:true, decimals:2},
+  {key:'ruw', label:'RUW', numeric:true, decimals:2},
+  {key:'ftp', label:'FTP', numeric:true, decimals:2},
+  {key:'rtp', label:'RTP', numeric:true, decimals:2},
+  {key:'str', label:'STR', numeric:true, decimals:2},
+  {key:'dfm', label:'DFM', numeric:true, decimals:2},
+  {key:'rls', label:'RLS', numeric:true, decimals:2},
+  {key:'rlr', label:'RLR', numeric:true, decimals:2},
+  {key:'fta', label:'FTA', numeric:true, decimals:2},
+  {key:'fls', label:'FLS', numeric:true, decimals:2},
+  {key:'fua', label:'FUA', numeric:true, decimals:2},
+  {key:'udp', label:'UDP', numeric:true, decimals:2},
+];
+// Pre-selected by default; everything else in TOGGLEABLE_COLUMNS starts
+// unchecked, including the newly-added GM/CM/FM indexes.
+let selectedColumns = new Set(['a2','rel','nm','fat','pro','dpr','sce','cw','bd','sta']);
+// Mobile only: the column-picker chips are hidden by default on narrow
+// screens (see .column-picker CSS) and revealed via the "Columns" toggle
+// button, same pattern as the Filters drawer.
+let mobileColumnsOpen = false;
+function activeColumns(){
+  return [
+    {key:'score', label:'Score', numeric:true},
+    {key:'name', label:'Bull'},
+    ...TOGGLEABLE_COLUMNS.filter(c => selectedColumns.has(c.key)),
+  ];
+}
+
+// Cap initial rows shown to keep the table light — 100 on desktop, 50 on
+// narrow screens where a phone's CPU/memory has less headroom on top of
+// this file's ~14MB embedded dataset. "Show more" pulls in additional
+// batches beyond the cap.
+function getInitialDisplayCap(){
+  return window.innerWidth <= 860 ? 50 : 100;
+}
+const LOAD_MORE_STEP = 200;
+let visibleCount = null; // null = use getInitialDisplayCap() for this render
+
+function wireColumnPicker(){
+  document.querySelectorAll('input[data-col]').forEach(inp => {
+    inp.onchange = e => {
+      const k = e.target.dataset.col;
+      if(e.target.checked) selectedColumns.add(k); else selectedColumns.delete(k);
+      renderMain();
+    };
+  });
+}
+
+function wireExportTopBtn(){
+  const btn = document.getElementById('exportTopBtn');
+  if(btn) btn.onclick = exportShortlist;
+}
+
+function renderMain(){
+  const el = document.getElementById('main');
+  let list = getFiltered();
+  list.sort((a,b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if(av === undefined || av === null) av = -Infinity;
+    if(bv === undefined || bv === null) bv = -Infinity;
+    if(typeof av === 'string') return sortDir * av.localeCompare(bv);
+    return sortDir * (av - bv);
+  });
+
+  const cap = visibleCount ?? getInitialDisplayCap();
+  const shown = list.slice(0, cap);
+  const cols = activeColumns();
+  const hasMore = list.length > shown.length;
+
+  const exportTopBtn = `<button class="btn secondary export-top-btn" id="exportTopBtn" ${shortlist.size===0?'disabled':''}>Export shortlist (CSV) — ${shortlist.size} bull${shortlist.size===1?'':'s'}</button>`;
+
+  const toolbar = `
+    <div class="toolbar">
+      <div class="stats"><b>${list.length.toLocaleString()}</b> of ${BULLS.length.toLocaleString()} bulls match your filters
+        ${hasMore ? ` — showing top <b>${shown.length.toLocaleString()}</b> by current sort` : ''}</div>
+      <div class="column-picker${mobileColumnsOpen ? ' mobile-open' : ''}">
+        <span class="column-picker-label">Columns:</span>
+        ${TOGGLEABLE_COLUMNS.map(c => `
+          <label class="chip-check">
+            <input type="checkbox" data-col="${c.key}" ${selectedColumns.has(c.key)?'checked':''}> ${c.label}
+          </label>
+        `).join('')}
+      </div>
+    </div>`;
+
+  if(list.length === 0){
+    el.innerHTML = exportTopBtn + toolbar + `<div class="empty-state"><h3>No bulls match these filters</h3><p>Try loosening the price cap, reliability floor, per-trait range filters, or A2A2/genetic recessive filters.</p></div>`;
+    wireColumnPicker();
+    wireExportTopBtn();
+    return;
+  }
+
+  const rows = shown.map((b,i) => {
+    const id = b.naab || b.name;
+    const starred = shortlist.has(id);
+    const cells = cols.map(c => {
+      if(c.key === 'score') return `<td class="score-cell">${b.score.toFixed(1)}</td>`;
+      if(c.key === 'name') return `<td class="name-cell" data-id="${id}">${b.name}<span class="naab">${b.naab||''}</span></td>`;
+      if(c.key === 'a2') return `<td>${b.a2==='A2A2'?'<span class="tag a2">A2A2</span>':(b.a2?'<span class="tag warn">'+b.a2+'</span>':'—')}</td>`;
+      return `<td>${fmt(b[c.key], c.decimals)}</td>`;
+    }).join('');
+    return `<tr class="${starred?'starred':''}">
+      <td class="rank-cell">${i+1}</td>
+      <td><button class="star-btn ${starred?'on':''}" data-id="${id}">${starred?'★':'☆'}</button></td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = exportTopBtn + toolbar + `
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th></th><th>★</th>
+          ${cols.map(c => `<th data-key="${c.key}" class="${sortKey===c.key?'sorted':''}">${c.label}${sortKey===c.key?(sortDir===1?' ▲':' ▼'):''}</th>`).join('')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${hasMore ? `<button class="btn secondary" id="showMoreBtn" style="margin-top:12px;">Show ${Math.min(LOAD_MORE_STEP, list.length-shown.length).toLocaleString()} more (of ${(list.length-shown.length).toLocaleString()} remaining)</button>` : ''}`;
+
+  el.querySelectorAll('thead th[data-key]').forEach(th=>{
+    th.onclick = () => {
+      const k = th.dataset.key;
+      if(sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = -1; }
+      renderMain();
+    };
+  });
+  el.querySelectorAll('.star-btn').forEach(btn=>{
+    btn.onclick = () => {
+      const id = btn.dataset.id;
+      if(shortlist.has(id)) shortlist.delete(id); else shortlist.add(id);
+      render();
+    };
+  });
+  el.querySelectorAll('td.name-cell').forEach(td=>{
+    td.onclick = () => { location.hash = '#bull/' + encodeURIComponent(td.dataset.id); };
+  });
+  if(document.getElementById('showMoreBtn')){
+    document.getElementById('showMoreBtn').onclick = () => {
+      visibleCount = cap + LOAD_MORE_STEP;
+      renderMain();
+    };
+  }
+  wireColumnPicker();
+  wireExportTopBtn();
+}
+
+function render(){
+  visibleCount = null; // any real filter/preset change resets pagination back to the initial cap
+  renderSidebar();
+  renderMain();
+  document.getElementById('mobileExportBtn').disabled = shortlist.size === 0;
+}
+
+// Mobile sidebar drawer: these are static elements outside
+// renderSidebar/renderMain's innerHTML, so wire them once rather than on
+// every render.
+function closeMobileSidebar(){ document.getElementById('layout').classList.remove('mobile-sidebar-open'); }
+document.getElementById('mobileFiltersBtn').onclick = () => {
+  document.getElementById('layout').classList.add('mobile-sidebar-open');
+};
+document.getElementById('sidebarBackdrop').onclick = closeMobileSidebar;
+document.getElementById('mobileColumnsBtn').onclick = () => {
+  mobileColumnsOpen = !mobileColumnsOpen;
+  renderMain();
+};
+document.getElementById('mobileExportBtn').onclick = exportShortlist;
+
+function fmtDate(v){
+  if(typeof v !== 'number') return '—';
+  const s = String(v);
+  if(s.length !== 8) return String(v);
+  return `${s.slice(4,6)}/${s.slice(6,8)}/${s.slice(0,4)}`;
+}
+
+// ---------- Bull detail page ----------
+// A single-file app can't do real server routes, so this uses the URL hash
+// (#bull/{naab}) as a lightweight page: it's bookmarkable/shareable and the
+// browser back button works, without needing a backend.
+// Left/right descriptor words for each type trait's bar, e.g. Stature runs
+// Short (negative end) -> Tall (positive end). Sourced from
+// https://ct.wwsires.com/bull/7HO18093/EN. "Rump Width" on that page is
+// shown here against our Thurl Width (TRW) trait, since that's the closest
+// equivalent in this app's data — flag if that mapping isn't right.
+// Udder Depth and Foot Angle have no descriptor pair: their words (Deep/
+// Depth, Angle/Angle) just repeat the trait's own heading, so showing them
+// added nothing. A few others (Rear Udder Height vs "High", Rear Udder
+// Width / Thurl Width vs "Wide", Teat Length vs "Long") have a similar
+// root-word overlap but aren't literal repeats, so those were left as-is —
+// flag it if you'd rather those come out too.
+const TYPE_BAR_LABELS = {
+  sta:['Short','Tall'], str:['Frail','Strong'], dfm:['Tight Ribbed','Open Ribbed'],
+  rpa:['High Pins','Sloped'], trw:['Narrow','Wide'], rls:['Posty','Sickled'],
+  rlr:['Hock-in','Straight'], fls:['Low','High'],
+  fua:['Loose','Strong'], ruh:['Low','High'], ruw:['Narrow','Wide'],
+  ucl:['Weak','Strong'], ftp:['Wide','Close'],
+  rtp:['Wide','Close'], tlg:['Short','Long'],
+};
+
+// Horizontal deviation bar per type trait, similar to the bar-per-trait
+// style used in STgenetics' own sire proof layouts: a center line at 0,
+// with the bar growing left (penalized direction, amber) or right
+// (rewarded direction, green) depending on sign. Traits are displayed on a
+// -2..+2 scale; values beyond it just clip to a full-width bar rather than
+// erroring.
+function typeBarRow(b, t){
+  const v = b[t.key];
+  const decimals = TRAIT_DECIMALS[t.key] ?? 2;
+  const [leftLabel, rightLabel] = TYPE_BAR_LABELS[t.key] ?? ['', ''];
+  if(typeof v !== 'number'){
+    return `<div class="type-bar-row">
+      <span class="type-bar-label">${t.label}</span>
+      <span class="type-bar-desc left">${leftLabel}</span>
+      <div class="type-bar-track"><div class="type-bar-center"></div></div>
+      <span class="type-bar-desc right">${rightLabel}</span>
+      <span class="type-bar-val">—</span>
+    </div>`;
+  }
+  const maxAbs = 2;
+  const pct = Math.max(-1, Math.min(1, v / maxAbs)) * 50;
+  const barLeft = pct < 0 ? 50 + pct : 50;
+  const barWidth = Math.abs(pct);
+  return `<div class="type-bar-row">
+    <span class="type-bar-label">${t.label}</span>
+    <span class="type-bar-desc left">${leftLabel}</span>
+    <div class="type-bar-track">
+      <div class="type-bar-center"></div>
+      <div class="type-bar-fill ${v < 0 ? 'neg' : 'pos'}" style="left:${barLeft}%; width:${barWidth}%"></div>
+    </div>
+    <span class="type-bar-desc right">${rightLabel}</span>
+    <span class="type-bar-val">${v > 0 ? '+' : ''}${v.toFixed(decimals)}</span>
+  </div>`;
+}
+
+function renderBullDetail(b){
+  document.getElementById('layout').classList.add('detail-mode');
+  const el = document.getElementById('main');
+  const link = bullExternalLink(b);
+
+  // Type & Conformation splits into two displays: the four -CDN rating
+  // traits (chest width, body depth, hoof health, milking speed) as plain
+  // stat blocks like every other group, and the remaining linear type
+  // traits as a deviation bar chart.
+  const tcTraits = TRAITS.filter(t => t.group === 'Type & Conformation');
+  const cdnTraits = tcTraits.filter(t => t.label.includes('-CDN'));
+  const chartTraits = tcTraits.filter(t => !t.label.includes('-CDN'));
+
+  const statPanel = (title, traits, extraTraits=[]) => `
+    <div class="panel">
+      <h2>${title}</h2>
+      <div class="detail-grid">
+        ${traits.map(t => `
+          <div class="detail-stat">
+            <span class="detail-stat-label">${t.label}</span>
+            <span class="detail-stat-val">${t.key==='a2' ? (b.a2 || '—') : fmt(b[t.key], TRAIT_DECIMALS[t.key] ?? 2) + (t.suffix && typeof b[t.key]==='number' ? t.suffix : '')}</span>
+          </div>
+        `).join('')}
+        ${extraTraits.map(t => `
+          <div class="detail-stat">
+            <span class="detail-stat-label">${t.label}</span>
+            <span class="detail-stat-val">${
+              t.kind==='boolean' ? (b[t.key] ? 'Yes' : '—')
+              : t.kind==='genotype' || t.kind==='text' ? (b[t.key] || '—')
+              : fmt(b[t.key], TRAIT_DECIMALS[t.key] ?? 2) + (t.suffix && typeof b[t.key]==='number' ? t.suffix : '')
+            }</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+
+  // Health and Efficiency groups its traits into Livability / Fertility /
+  // Health / Efficiency sub-sections (similar to how Alta's bull page
+  // separates these), rather than one flat list.
+  const SUBGROUP_ORDER = ['Livability', 'Fertility', 'Health', 'Efficiency'];
+  const statCell = t => `
+    <div class="detail-stat">
+      <span class="detail-stat-label">${t.label}</span>
+      <span class="detail-stat-val">${
+        t.kind==='boolean' ? (b[t.key] ? 'Yes' : '—')
+        : t.kind==='genotype' || t.kind==='text' ? (b[t.key] || '—')
+        : fmt(b[t.key], TRAIT_DECIMALS[t.key] ?? 2) + (t.suffix && typeof b[t.key]==='number' ? t.suffix : '')
+      }</span>
+    </div>`;
+  const healthEffTraits = [
+    ...TRAITS.filter(t=>t.group==='Health and Efficiency'),
+    ...EXTRA_TRAITS.filter(t=>t.group==='Health and Efficiency'),
+  ];
+  const healthEffPanel = `
+    <div class="panel">
+      <h2>Health and Efficiency</h2>
+      ${SUBGROUP_ORDER.map(sg => {
+        const subTraits = healthEffTraits.filter(t => t.subgroup === sg);
+        if(subTraits.length === 0) return '';
+        return `
+          <h3 class="detail-subgroup">${sg}</h3>
+          <div class="detail-grid">${subTraits.map(statCell).join('')}</div>`;
+      }).join('')}
+    </div>`;
+
+  el.innerHTML = `
+    <div class="detail-page">
+      <a href="#" class="back-link" id="backLink">← Back to results</a>
+      <h2 class="detail-name">${b.name}</h2>
+      <div class="detail-meta">
+        <span>NAAB: <b>${b.naab || '—'}</b></span>
+        <span>Reg: <b>${b.reg || '—'}</b></span>
+        <span>Born: <b>${fmtDate(b.birth)}</b></span>
+        <span>Rel: <b>${fmt(b.rel,0)}%</b></span>
+        <span>NM$: <b>${fmt(b.nm,0)}</b></span>
+        <span>GM$: <b>${fmt(b.gm,0)}</b></span>
+        <span>CM$: <b>${fmt(b.cm,0)}</b></span>
+        <span>FM$: <b>${fmt(b.fm,0)}</b></span>
+        <span>TPI: <b>${fmt(b.tpi,0)}</b></span>
+        ${b.haplotype_carrier ? `<span class="tag warn">Genetic recessive carrier</span>` : ''}
+      </div>
+      ${link
+        ? `<a class="detail-link-btn" href="${link.url}" target="_blank" rel="noopener">View on ${link.company} →</a>`
+        : `<p class="foot-note">No direct sire-directory link is available for this bull's AI company.</p>`}
+
+      ${statPanel('Genetics', TRAITS.filter(t=>t.group==='Genetics'), EXTRA_TRAITS.filter(t=>t.group==='Genetics'))}
+      ${statPanel('Production', TRAITS.filter(t=>t.group==='Production'), EXTRA_TRAITS.filter(t=>t.group==='Production'))}
+      ${healthEffPanel}
+      ${statPanel('CDN Traits', cdnTraits)}
+      <div class="panel">
+        <h2>Type</h2>
+        <p class="foot-note" style="margin:-4px 0 10px;">Scale: -2 to +2</p>
+        <div class="type-chart">
+          ${chartTraits.map(t => typeBarRow(b, t)).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('backLink').onclick = (e) => { e.preventDefault(); location.hash = ''; };
+}
+
+function route(){
+  const h = location.hash;
+  if(h.startsWith('#bull/')){
+    const id = decodeURIComponent(h.slice(6));
+    const bull = BULLS.find(b => (b.naab || b.name) === id);
+    if(bull){ renderBullDetail(bull); return; }
+  }
+  document.getElementById('layout').classList.remove('detail-mode');
+  render();
+}
+async function init(){
+  document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Loading bull data…</h3><p>Fetching bulls_1.json — this can take a few seconds on a slow connection.</p></div>`;
+  try {
+    const res = await fetch('bulls_1.json');
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    BULLS = await res.json();
+  } catch(err) {
+    document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Couldn't load bull data</h3><p>${err.message}. Make sure bulls_1.json is in the same folder as this HTML file, and that you're viewing this over a web server rather than by double-clicking the file — browsers block local file:// pages from fetching other local files. A quick local server: run <code>python3 -m http.server</code> in that folder, then open http://localhost:8000/.</p></div>`;
+    return;
+  }
+  window.addEventListener('hashchange', route);
+  route();
+}
+init();
+
+</script>
+</body>
+</html>
