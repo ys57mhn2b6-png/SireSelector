@@ -950,7 +950,16 @@ function renderAuthModal(errorMsg){
     btn.disabled = true; btn.textContent = 'Please wait…';
     try {
       const { error } = isSignup
-        ? await sb.auth.signUp({ email, password })
+        ? await sb.auth.signUp({
+            email, password,
+            // Explicitly pass the redirect target rather than relying only on
+            // Supabase's Site URL default — that default was observed
+            // generating confirmation links truncated to the bare origin
+            // (missing the /SireSelector/ path) despite Site URL being
+            // correctly configured in the dashboard. Passing it explicitly
+            // here is a reliable workaround for that mismatch.
+            options: { emailRedirectTo: window.location.origin + window.location.pathname }
+          })
         : await sb.auth.signInWithPassword({ email, password });
       if(error){ renderAuthModal(error.message); authBusy = false; return; }
       if(isSignup){
