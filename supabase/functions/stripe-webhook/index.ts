@@ -23,7 +23,7 @@ import Stripe from 'npm:stripe@17';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
-  apiVersion: '2024-06-20',
+  apiVersion: '2026-06-24.dahlia',
 });
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
 
