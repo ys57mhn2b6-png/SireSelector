@@ -920,9 +920,6 @@ function renderAuthModal(errorMsg){
         <h3>${isSignup ? 'Create your account' : 'Sign in'}</h3>
         <p class="modal-sub">${isSignup ? 'Save your preferences and starred bulls across devices.' : 'Welcome back.'}</p>
         <p class="modal-error">${errorMsg || ''}</p>
-        <button class="oauth-btn" id="googleBtn">Continue with Google</button>
-        <button class="oauth-btn" id="appleBtn">Continue with Apple</button>
-        <div class="modal-divider">or</div>
         <form id="emailAuthForm">
           <input type="email" id="authEmail" placeholder="Email" required autocomplete="email">
           <input type="password" id="authPassword" placeholder="Password" required autocomplete="${isSignup?'new-password':'current-password'}" minlength="6">
@@ -938,8 +935,6 @@ function renderAuthModal(errorMsg){
   document.getElementById('authCloseBtn').onclick = closeAuthModal;
   document.getElementById('authBackdrop').onclick = e => { if(e.target.id === 'authBackdrop') closeAuthModal(); };
   document.getElementById('toggleAuthMode').onclick = () => { authModalMode = isSignup ? 'signin' : 'signup'; renderAuthModal(); };
-  document.getElementById('googleBtn').onclick = () => signInWithOAuth('google');
-  document.getElementById('appleBtn').onclick = () => signInWithOAuth('apple');
   document.getElementById('emailAuthForm').onsubmit = async e => {
     e.preventDefault();
     if(authBusy) return;
@@ -974,9 +969,6 @@ function renderAuthModal(errorMsg){
     }
     authBusy = false;
   };
-}
-async function signInWithOAuth(provider){
-  await sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
 }
 async function signOut(){
   await sb.auth.signOut();
@@ -1050,13 +1042,28 @@ async function startCheckout(){
       body: { returnUrl: window.location.href }
     });
     if(error || !data?.url){
-      alert('Could not start checkout: ' + (error?.message || 'unknown error'));
+      // supabase-js wraps a non-2xx response in a generic "Edge Function
+      // returned a non-2xx status code" message — the actual error detail
+      // our function sent back is in error.context (the raw Response),
+      // not error.message. Unwrap it so we can actually see what failed.
+      let detail = error?.message || 'unknown error';
+      if(error?.context){
+        try {
+          const body = await error.context.json();
+          if(body?.error) detail = body.error;
+        } catch(_){
+          try { detail = await error.context.text(); } catch(__){}
+        }
+      }
+      console.error('create-checkout-session failed:', detail, error);
+      alert('Could not start checkout: ' + detail);
       if(btn){ btn.disabled = false; btn.textContent = 'Upgrade'; }
       return;
     }
     window.location.href = data.url;
   } catch(err){
-    alert('Could not start checkout. Please try again.');
+    console.error('startCheckout threw:', err);
+    alert('Could not start checkout: ' + (err?.message || 'Please try again.'));
     if(btn){ btn.disabled = false; btn.textContent = 'Upgrade'; }
   }
 }
