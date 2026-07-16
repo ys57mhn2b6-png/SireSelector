@@ -394,8 +394,8 @@
 // Fill these in from your Supabase project's Settings -> API page.
 // The anon/publishable key is safe to expose here — it relies on the
 // Row Level Security policies set up server-side, it is not a secret.
-const SUPABASE_URL = 'https://oyaldjpjbjfmljtxyrfi.supabase.co'; // e.g. https://abcdefgh.supabase.co
-const SUPABASE_ANON_KEY = 'sb_publishable_5AicLOvC6hIZMIRPCVzpew_x2ZfQuKE';
+const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL'; // e.g. https://abcdefgh.supabase.co
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script>
@@ -765,10 +765,10 @@ const PRESETS = {
   // Efficiency weights 13 traits flat at 5% each — LIV, HLV, DPR, SCE, EFC,
   // DCE, SSB, DSB, MAS, SCS, Hoof Health, Milking Speed, RFI. Type &
   // Conformation uses the same weighting as Production focus: Stature and
-  // Feet & Legs Score at 5% each, everything else at 0. A2A2 filter is
-  // explicitly off for this preset (only RDFL turns it on).
+  // Feet & Legs Score at 5% each, everything else at 0. A2A2 filter is on
+  // for this preset (along with RDFL) — every other preset leaves it off.
   health:    {label:'Health and efficiency focus', pcts: {fat:10,pro:8,milk:7,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
-    filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} } },
+    filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} } },
   // Type & conformation focus: rpa/ucl/tlg/cw/bd/sta/hhrating/ruh/ruw/ftp/rtp
   // rescaled by 57/60 to make room for trw (3.00) inside the group's 60%
   // target, so Production 20 / Health and Efficiency 20 / Type & Conformation
@@ -807,7 +807,7 @@ const PRESETS = {
 };
 
 let pcts = {...PRESETS.production.pcts};
-let filters = {a2Only:true, excludeHaplotype:true, excludeClones:true, minRel:70, ranges:{}, studGroups:{select:true, semex:true, stg:true}, genotypeFilters:{}, searchText:'', polledOnly:false, redOnly:false};
+let filters = {a2Only:false, excludeHaplotype:true, excludeClones:true, minRel:70, ranges:{}, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false}, genotypeFilters:{}, searchText:'', polledOnly:false, redOnly:false};
 // Health and Efficiency and Type & Conformation have the most sliders/filters
 // of any groups, so their bodies start collapsed behind an expander to keep
 // the sidebar manageable on first load; Production stays always expanded.
@@ -821,36 +821,37 @@ let authModalMode = 'signin'; // 'signin' | 'signup'
 let authBusy = false;
 function isPremium(){ return !!(authProfile && authProfile.subscription_status === 'active'); }
 
-// ---------- Filter gating (Premium only) ----------
-// Filters remain visible so free users can see what they're missing, but every
-// filter input is disabled and clicking anywhere on a filter-only panel
-// prompts an upgrade. passesFilters() (see below) is the actual enforcement —
-// this is just keeping the UI honest about what's active.
+// ---------- Filter & weighting gating (Premium only) ----------
+// Free accounts get two fixed, complete presets (Production, Health and
+// Efficiency) to choose between — everything else in the sidebar (manual
+// trait-weight sliders, every filter, marketing-company checkboxes,
+// genetics/genotype controls, saving preferences) requires a subscription.
+// Panels stay visible so free users can see what they're missing, but every
+// input inside a locked panel is disabled and the panel prompts an upgrade.
+// passesFilters() is the actual server-side-of-logic enforcement for
+// filtering; this is just keeping the UI honest about what's active.
 function applyFilterGating(){
   if(isPremium()) return; // nothing to lock
 
-  const filterInputSelectors = [
-    '#f_rel', '#f_a2', '#f_haplo', '#f_clones', '#f_polled', '#f_red',
-    '[data-studkey]', '[data-genotrait]',
-    'input.range-min', 'input.range-max', '.range-clear',
-  ].join(', ');
-  document.querySelectorAll(filterInputSelectors).forEach(el => {
-    el.disabled = true;
-    el.style.cursor = 'not-allowed';
-  });
-
-  // Fully lock the two panels that are 100% filter content.
+  const FREE_PANEL_HEADINGS = ['Presets'];
   document.querySelectorAll('.panel').forEach(panel => {
     const heading = panel.querySelector('h2');
     if(!heading) return;
-    if(heading.textContent === 'Filters' || heading.textContent === 'Marketing Company'){
-      panel.classList.add('locked-panel');
-      const overlay = document.createElement('div');
-      overlay.className = 'locked-overlay';
-      overlay.innerHTML = `<span class="lock-icon">🔒</span><p>Filters are a Premium feature.</p><button>Upgrade</button>`;
-      overlay.querySelector('button').onclick = () => promptUpgrade('Filtering the bull list by reliability, genetics, or marketing company is a Premium feature.');
-      panel.appendChild(overlay);
-    }
+    const headingText = heading.textContent.trim();
+    const isShortlist = headingText.startsWith('Your Shortlist');
+    if(FREE_PANEL_HEADINGS.includes(headingText) || isShortlist) return;
+
+    panel.querySelectorAll('input, select').forEach(el => {
+      el.disabled = true;
+      el.style.cursor = 'not-allowed';
+    });
+
+    panel.classList.add('locked-panel');
+    const overlay = document.createElement('div');
+    overlay.className = 'locked-overlay';
+    overlay.innerHTML = `<span class="lock-icon">🔒</span><p>Custom weighting, filters, and search are a Premium feature.</p><button>Upgrade</button>`;
+    overlay.querySelector('button').onclick = () => promptUpgrade('Adjusting individual trait weights, filtering, and searching the bull list are all Premium features. Free accounts can still choose between the Production and Health and Efficiency presets.');
+    panel.appendChild(overlay);
   });
 }
 
@@ -1052,6 +1053,7 @@ async function initAuth(){
     await loadPreferencesFromServer();
   }
   renderAccountBar();
+  render(); // the earlier route()/render() call ran before auth resolved, with everything defaulted to free-tier gating — re-render now that we actually know the real session/premium state
 
   sb.auth.onAuthStateChange(async (_event, session) => {
     authSession = session;
@@ -1166,8 +1168,9 @@ function passesFilters(b){
     if(filters.minRel && (b.rel ?? 0) < filters.minRel) return false;
   }
   // Free-text search against name and NAAB code — case-insensitive substring
-  // match against either field.
-  if(filters.searchText){
+  // match against either field. Premium only, same as every other filter —
+  // free accounts browse the unfiltered list via the two free presets only.
+  if(premium && filters.searchText){
     const q = filters.searchText.trim().toLowerCase();
     if(q){
       const nameMatch = typeof b.name === 'string' && b.name.toLowerCase().includes(q);
@@ -1180,7 +1183,7 @@ function passesFilters(b){
   // Skipped entirely while a search is active — typing a name/NAAB code is a
   // targeted lookup (including bulls outside the 5 loaded companies), not a
   // company-based browse, so it shouldn't be blocked by the checkboxes.
-  const searchActive = !!(filters.searchText && filters.searchText.trim());
+  const searchActive = premium && !!(filters.searchText && filters.searchText.trim());
   if(premium && !searchActive){
     const checkedStudGroups = STUD_GROUPS.filter(g => filters.studGroups[g.key]);
     if(checkedStudGroups.length > 0 && !checkedStudGroups.some(g => matchesStudGroup(b, g))) return false;
@@ -1211,7 +1214,7 @@ function passesFilters(b){
 
 function getFiltered(){
   const weights = pctToWeights(pcts);
-  const searchActive = !!(filters.searchText && filters.searchText.trim());
+  const searchActive = isPremium() && !!(filters.searchText && filters.searchText.trim());
   const source = (searchActive && ADDITIONAL_BULLS) ? BULLS.concat(ADDITIONAL_BULLS) : BULLS;
   return source.filter(passesFilters).map(b => ({...b, score: computeScore(b, weights)}));
 }
@@ -1453,6 +1456,10 @@ function renderSidebar(){
     };
   });
   document.getElementById('resetWeights').onclick = () => { pcts = {...PRESETS[activePreset].pcts}; render(); };
+  document.getElementById('savePrefsBtn').onclick = () => {
+    if(!isPremium()){ promptUpgrade('Saving your preferences so they\'re there next time you visit is a Premium feature.'); return; }
+    savePreferencesToServer();
+  };
 
   document.getElementById('f_a2').onchange = e => { filters.a2Only = e.target.checked; render(); };
   document.getElementById('f_polled').onchange = e => { filters.polledOnly = e.target.checked; render(); };
@@ -1993,6 +2000,7 @@ async function init(){
   }
   window.addEventListener('hashchange', route);
   route();
+  initAuth(); // populates the account bar and applies free/premium gating — was previously defined but never called
 }
 init();
 
