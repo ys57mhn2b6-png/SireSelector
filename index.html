@@ -959,7 +959,8 @@ function renderAuthModal(errorMsg){
         closeAuthModal();
       }
     } catch(err){
-      renderAuthModal('Something went wrong. Please try again.');
+      console.error('Auth request threw an exception (not a normal Supabase error response):', err);
+      renderAuthModal(err?.message ? `Error: ${err.message}` : 'Something went wrong. Please try again. (See browser console for details.)');
     }
     authBusy = false;
   };
