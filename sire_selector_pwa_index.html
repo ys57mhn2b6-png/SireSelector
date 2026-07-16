@@ -46,6 +46,83 @@
     color:var(--green-deep); letter-spacing:-0.01em;
   }
   header p{margin:0; color:var(--slate); font-size:14px; max-width:640px; line-height:1.5;}
+
+  /* Account bar */
+  .account-bar{display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:10px; font-size:13px;}
+  .account-bar .acct-email{color:var(--slate);}
+  .account-bar .btn-link{
+    background:none; border:1px solid var(--line); border-radius:6px; padding:6px 12px;
+    font-size:13px; cursor:pointer; color:var(--green-deep); font-weight:600;
+  }
+  .account-bar .btn-link:hover{background:var(--amber-soft);}
+  .account-bar .btn-primary{
+    background:var(--green-deep); color:var(--cream); border:none; border-radius:6px;
+    padding:6px 14px; font-size:13px; cursor:pointer; font-weight:600;
+  }
+  .account-bar .btn-primary:hover{background:var(--green-mid);}
+  .account-bar .badge-premium{
+    background:var(--amber-soft); color:var(--green-deep); border-radius:20px;
+    padding:3px 10px; font-size:11.5px; font-weight:700; letter-spacing:0.02em;
+  }
+
+  /* Auth modal */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(32,40,31,0.55); display:flex;
+    align-items:center; justify-content:center; z-index:1000; padding:16px;
+  }
+  .modal-card{
+    background:var(--paper); border-radius:12px; padding:28px; max-width:380px; width:100%;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-card h3{margin:0 0 4px; font-family:'Fraunces',serif; color:var(--green-deep); font-size:22px;}
+  .modal-card .modal-sub{color:var(--slate); font-size:13px; margin:0 0 18px;}
+  .modal-card input[type=email], .modal-card input[type=password]{
+    width:100%; box-sizing:border-box; padding:10px 12px; margin-bottom:10px; border-radius:6px;
+    border:1px solid var(--line); font-size:14px; font-family:inherit;
+  }
+  .modal-card .btn-primary-full{
+    width:100%; background:var(--green-deep); color:var(--cream); border:none; border-radius:6px;
+    padding:11px; font-size:14px; font-weight:600; cursor:pointer; margin-bottom:10px;
+  }
+  .modal-card .btn-primary-full:hover{background:var(--green-mid);}
+  .modal-card .oauth-btn{
+    width:100%; background:var(--paper); color:var(--ink); border:1px solid var(--line); border-radius:6px;
+    padding:10px; font-size:14px; font-weight:600; cursor:pointer; margin-bottom:8px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .modal-card .oauth-btn:hover{background:var(--cream);}
+  .modal-card .modal-divider{
+    display:flex; align-items:center; gap:10px; color:var(--slate); font-size:12px;
+    margin:14px 0;
+  }
+  .modal-card .modal-divider::before, .modal-card .modal-divider::after{
+    content:''; flex:1; height:1px; background:var(--line);
+  }
+  .modal-card .modal-error{color:var(--red); font-size:12.5px; margin:0 0 10px; min-height:16px;}
+  .modal-card .modal-toggle{font-size:12.5px; color:var(--slate); text-align:center; margin-top:6px;}
+  .modal-card .modal-toggle button{background:none; border:none; color:var(--green-deep); font-weight:700; cursor:pointer; padding:0;}
+  .modal-card .modal-close{
+    position:absolute; top:14px; right:16px; background:none; border:none; font-size:18px;
+    cursor:pointer; color:var(--slate);
+  }
+  .modal-card{position:relative;}
+
+  /* Locked (premium-gated) panels */
+  .locked-panel{position:relative;}
+  .locked-panel .locked-overlay{
+    position:absolute; inset:0; background:rgba(250,246,238,0.82); border-radius:8px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:8px; padding:16px; z-index:5;
+  }
+  .locked-panel .locked-overlay .lock-icon{font-size:20px;}
+  .locked-panel .locked-overlay p{margin:0; font-size:12.5px; color:var(--slate); max-width:220px;}
+  .locked-panel .locked-overlay button{
+    background:var(--amber); color:var(--paper); border:none; border-radius:6px;
+    padding:7px 14px; font-size:12.5px; font-weight:700; cursor:pointer;
+  }
+  .preset-btn.locked{opacity:0.5; cursor:pointer; position:relative;}
+  .preset-btn.locked::after{content:' 🔒'; font-size:10px;}
+
   .layout{display:flex; align-items:flex-start; min-height:calc(100vh - 100px);}
   .layout.detail-mode .sidebar{display:none;}
   .detail-page{max-width:900px;}
@@ -290,10 +367,13 @@
 <body>
 
 <header>
+  <div class="account-bar" id="accountBar"></div>
   <h1>Sire Selector</h1>
   <p>Rank bulls against your breeding priorities. Adjust the sliders to match what matters for your farm and the list re-ranks. Star candidates to build your own list.</p>
   <p class="foot-note">The genetic evaluation data is provided by the Council on Dairy Cattle Breeding (CDCB), except for the type data that is provided by Holstein Association USA. No liability is accepted for errors or omissions in the data.</p>
 </header>
+
+<div id="authModalRoot"></div>
 
 <div class="layout" id="layout">
   <div class="mobile-toolbar-row">
@@ -307,6 +387,17 @@
 </div>
 
 
+<!-- Supabase client (auth + database) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ---- Supabase project config ----
+// Fill these in from your Supabase project's Settings -> API page.
+// The anon/publishable key is safe to expose here — it relies on the
+// Row Level Security policies set up server-side, it is not a secret.
+const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL'; // e.g. https://abcdefgh.supabase.co
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
 <script>
 // Bull data now lives in bulls_1.json (fetched below) instead of being
 // embedded inline — keeps this HTML file small and lets the browser cache
@@ -715,15 +806,268 @@ const PRESETS = {
     direction: { rpa:true, sta:true } },
 };
 
-let pcts = {...PRESETS.rdfl.pcts};
+let pcts = {...PRESETS.production.pcts};
 let filters = {a2Only:true, excludeHaplotype:true, excludeClones:true, minRel:70, ranges:{}, studGroups:{select:true, semex:true, stg:true}, genotypeFilters:{}, searchText:'', polledOnly:false, redOnly:false};
 // Health and Efficiency and Type & Conformation have the most sliders/filters
 // of any groups, so their bodies start collapsed behind an expander to keep
 // the sidebar manageable on first load; Production stays always expanded.
 let expandedGroups = { 'Health and Efficiency': false, 'Type & Conformation': false };
 let shortlist = new Set();
+
+// ---- Auth / subscription state ----
+let authSession = null;   // Supabase auth session, or null if signed out
+let authProfile = null;   // row from public.profiles for the signed-in user
+let authModalMode = 'signin'; // 'signin' | 'signup'
+let authBusy = false;
+function isPremium(){ return !!(authProfile && authProfile.subscription_status === 'active'); }
+
+// ---------- Filter gating (Premium only) ----------
+// Filters remain visible so free users can see what they're missing, but every
+// filter input is disabled and clicking anywhere on a filter-only panel
+// prompts an upgrade. passesFilters() (see below) is the actual enforcement —
+// this is just keeping the UI honest about what's active.
+function applyFilterGating(){
+  if(isPremium()) return; // nothing to lock
+
+  const filterInputSelectors = [
+    '#f_rel', '#f_a2', '#f_haplo', '#f_clones', '#f_polled', '#f_red',
+    '[data-studkey]', '[data-genotrait]',
+    'input.range-min', 'input.range-max', '.range-clear',
+  ].join(', ');
+  document.querySelectorAll(filterInputSelectors).forEach(el => {
+    el.disabled = true;
+    el.style.cursor = 'not-allowed';
+  });
+
+  // Fully lock the two panels that are 100% filter content.
+  document.querySelectorAll('.panel').forEach(panel => {
+    const heading = panel.querySelector('h2');
+    if(!heading) return;
+    if(heading.textContent === 'Filters' || heading.textContent === 'Marketing Company'){
+      panel.classList.add('locked-panel');
+      const overlay = document.createElement('div');
+      overlay.className = 'locked-overlay';
+      overlay.innerHTML = `<span class="lock-icon">🔒</span><p>Filters are a Premium feature.</p><button>Upgrade</button>`;
+      overlay.querySelector('button').onclick = () => promptUpgrade('Filtering the bull list by reliability, genetics, or marketing company is a Premium feature.');
+      panel.appendChild(overlay);
+    }
+  });
+}
+
+// ---------- Upgrade prompt (used by locked presets/filters/export) ----------
+function promptUpgrade(message){
+  const root = document.getElementById('authModalRoot');
+  root.innerHTML = `
+    <div class="modal-backdrop" id="upgradeBackdrop">
+      <div class="modal-card">
+        <button class="modal-close" id="upgradeCloseBtn">✕</button>
+        <h3>Premium feature</h3>
+        <p class="modal-sub">${message}</p>
+        <button class="btn-primary-full" id="upgradeGoBtn">${authSession ? 'Upgrade — see pricing' : 'Sign in to upgrade'}</button>
+      </div>
+    </div>`;
+  document.getElementById('upgradeCloseBtn').onclick = closeAuthModal;
+  document.getElementById('upgradeBackdrop').onclick = e => { if(e.target.id === 'upgradeBackdrop') closeAuthModal(); };
+  document.getElementById('upgradeGoBtn').onclick = () => {
+    closeAuthModal();
+    if(authSession) startCheckout(); else openAuthModal('signup');
+  };
+}
+
+// ---------- Account bar (header) ----------
+function renderAccountBar(){
+  const el = document.getElementById('accountBar');
+  if(!authSession){
+    el.innerHTML = `<button class="btn-link" id="signInBtn">Sign in</button>`;
+    document.getElementById('signInBtn').onclick = () => openAuthModal('signin');
+    return;
+  }
+  const email = authSession.user.email || '';
+  if(isPremium()){
+    el.innerHTML = `
+      <span class="badge-premium">Premium</span>
+      <span class="acct-email">${email}</span>
+      <button class="btn-link" id="signOutBtn">Sign out</button>`;
+  } else {
+    el.innerHTML = `
+      <span class="acct-email">${email}</span>
+      <button class="btn-primary" id="upgradeBtn">Upgrade</button>
+      <button class="btn-link" id="signOutBtn">Sign out</button>`;
+    document.getElementById('upgradeBtn').onclick = startCheckout;
+  }
+  document.getElementById('signOutBtn').onclick = signOut;
+}
+
+// ---------- Auth modal ----------
+function openAuthModal(mode){
+  authModalMode = mode;
+  renderAuthModal();
+}
+function closeAuthModal(){
+  document.getElementById('authModalRoot').innerHTML = '';
+}
+function renderAuthModal(errorMsg){
+  const root = document.getElementById('authModalRoot');
+  const isSignup = authModalMode === 'signup';
+  root.innerHTML = `
+    <div class="modal-backdrop" id="authBackdrop">
+      <div class="modal-card">
+        <button class="modal-close" id="authCloseBtn">✕</button>
+        <h3>${isSignup ? 'Create your account' : 'Sign in'}</h3>
+        <p class="modal-sub">${isSignup ? 'Save your preferences and starred bulls across devices.' : 'Welcome back.'}</p>
+        <p class="modal-error">${errorMsg || ''}</p>
+        <button class="oauth-btn" id="googleBtn">Continue with Google</button>
+        <button class="oauth-btn" id="appleBtn">Continue with Apple</button>
+        <div class="modal-divider">or</div>
+        <form id="emailAuthForm">
+          <input type="email" id="authEmail" placeholder="Email" required autocomplete="email">
+          <input type="password" id="authPassword" placeholder="Password" required autocomplete="${isSignup?'new-password':'current-password'}" minlength="6">
+          <button type="submit" class="btn-primary-full" id="authSubmitBtn">${isSignup ? 'Create account' : 'Sign in'}</button>
+        </form>
+        <div class="modal-toggle">
+          ${isSignup
+            ? `Already have an account? <button id="toggleAuthMode">Sign in</button>`
+            : `New here? <button id="toggleAuthMode">Create an account</button>`}
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('authCloseBtn').onclick = closeAuthModal;
+  document.getElementById('authBackdrop').onclick = e => { if(e.target.id === 'authBackdrop') closeAuthModal(); };
+  document.getElementById('toggleAuthMode').onclick = () => { authModalMode = isSignup ? 'signin' : 'signup'; renderAuthModal(); };
+  document.getElementById('googleBtn').onclick = () => signInWithOAuth('google');
+  document.getElementById('appleBtn').onclick = () => signInWithOAuth('apple');
+  document.getElementById('emailAuthForm').onsubmit = async e => {
+    e.preventDefault();
+    if(authBusy) return;
+    authBusy = true;
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const btn = document.getElementById('authSubmitBtn');
+    btn.disabled = true; btn.textContent = 'Please wait…';
+    try {
+      const { error } = isSignup
+        ? await sb.auth.signUp({ email, password })
+        : await sb.auth.signInWithPassword({ email, password });
+      if(error){ renderAuthModal(error.message); authBusy = false; return; }
+      if(isSignup){
+        renderAuthModal('Check your email to confirm your account, then sign in.');
+        authModalMode = 'signin';
+      } else {
+        closeAuthModal();
+      }
+    } catch(err){
+      renderAuthModal('Something went wrong. Please try again.');
+    }
+    authBusy = false;
+  };
+}
+async function signInWithOAuth(provider){
+  await sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
+}
+async function signOut(){
+  await sb.auth.signOut();
+}
+
+// ---------- Profile / subscription ----------
+async function loadProfile(){
+  if(!authSession){ authProfile = null; return; }
+  const { data, error } = await sb
+    .from('profiles')
+    .select('subscription_status, stripe_customer_id')
+    .eq('id', authSession.user.id)
+    .single();
+  if(error){
+    console.warn('Could not load profile (row may not exist yet):', error.message);
+    authProfile = null;
+    return;
+  }
+  authProfile = data;
+}
+
+// ---------- Starred-list sync (premium only) ----------
+async function syncStarredFromServer(){
+  if(!isPremium()) return;
+  const { data, error } = await sb.from('starred_bulls').select('naab');
+  if(error){ console.warn('Could not load starred bulls:', error.message); return; }
+  shortlist = new Set(data.map(r => r.naab));
+}
+async function pushStarredChange(naab, starred){
+  if(!isPremium()) return; // free users keep an in-session-only shortlist, nothing to sync
+  if(starred){
+    const { error } = await sb.from('starred_bulls').upsert({ user_id: authSession.user.id, naab });
+    if(error) console.warn('Could not save starred bull:', error.message);
+  } else {
+    const { error } = await sb.from('starred_bulls').delete().eq('naab', naab);
+    if(error) console.warn('Could not remove starred bull:', error.message);
+  }
+}
+
+// ---------- Saved-preferences sync (premium only) ----------
+async function savePreferencesToServer(){
+  if(!isPremium()) return;
+  const { error } = await sb.from('saved_preferences').upsert({
+    user_id: authSession.user.id, weights: pcts, active_preset: activePreset, updated_at: new Date().toISOString()
+  });
+  if(error){ alert('Could not save preferences: ' + error.message); return; }
+  alert('Preferences saved.');
+}
+async function loadPreferencesFromServer(){
+  if(!isPremium()) return;
+  const { data, error } = await sb.from('saved_preferences').select('weights, active_preset').single();
+  if(error) return; // no saved row yet — not an error worth surfacing
+  if(data.weights) pcts = data.weights;
+  if(data.active_preset) activePreset = data.active_preset;
+}
+
+// ---------- Stripe checkout ----------
+// Calls a Supabase Edge Function (see create-checkout-session/index.ts) which
+// creates a Stripe Checkout session for the signed-in user and returns its URL.
+async function startCheckout(){
+  if(!authSession){ openAuthModal('signup'); return; }
+  const btn = document.getElementById('upgradeBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Loading…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('create-checkout-session', {
+      body: { returnUrl: window.location.href }
+    });
+    if(error || !data?.url){
+      alert('Could not start checkout: ' + (error?.message || 'unknown error'));
+      if(btn){ btn.disabled = false; btn.textContent = 'Upgrade'; }
+      return;
+    }
+    window.location.href = data.url;
+  } catch(err){
+    alert('Could not start checkout. Please try again.');
+    if(btn){ btn.disabled = false; btn.textContent = 'Upgrade'; }
+  }
+}
+
+// ---------- Wire it all together ----------
+async function initAuth(){
+  const { data: { session } } = await sb.auth.getSession();
+  authSession = session;
+  await loadProfile();
+  if(isPremium()){
+    await syncStarredFromServer();
+    await loadPreferencesFromServer();
+  }
+  renderAccountBar();
+
+  sb.auth.onAuthStateChange(async (_event, session) => {
+    authSession = session;
+    await loadProfile();
+    if(isPremium()){
+      await syncStarredFromServer();
+      await loadPreferencesFromServer();
+    } else {
+      shortlist = new Set(); // signed out / not premium: don't keep a stale synced list around
+    }
+    renderAccountBar();
+    render();
+  });
+}
 let sortKey = 'score', sortDir = -1;
-let activePreset = 'rdfl';
+let activePreset = 'production';
 
 // Stud/AI-company groupings by the first 3 digits of the NAAB code.
 const STUD_GROUPS = [
@@ -809,12 +1153,18 @@ function computeScore(b, weights){
 }
 
 function passesFilters(b){
-  if(filters.a2Only && b.a2 !== 'A2A2') return false;
-  if(filters.polledOnly && !b.polled) return false;
-  if(filters.redOnly && !b.red) return false;
-  if(filters.excludeHaplotype && b.haplotype_carrier) return false;
-  if(filters.excludeClones && typeof b.name === 'string' && b.name.endsWith('-ETN')) return false;
-  if(filters.minRel && (b.rel ?? 0) < filters.minRel) return false;
+  const premium = isPremium();
+  // All filtering below (reliability, genetics, marketing company, per-trait
+  // ranges) is a Premium feature — free accounts see the unfiltered list.
+  // Free-text search stays available to everyone; it's handled further down.
+  if(premium){
+    if(filters.a2Only && b.a2 !== 'A2A2') return false;
+    if(filters.polledOnly && !b.polled) return false;
+    if(filters.redOnly && !b.red) return false;
+    if(filters.excludeHaplotype && b.haplotype_carrier) return false;
+    if(filters.excludeClones && typeof b.name === 'string' && b.name.endsWith('-ETN')) return false;
+    if(filters.minRel && (b.rel ?? 0) < filters.minRel) return false;
+  }
   // Free-text search against name and NAAB code — case-insensitive substring
   // match against either field.
   if(filters.searchText){
@@ -831,26 +1181,30 @@ function passesFilters(b){
   // targeted lookup (including bulls outside the 5 loaded companies), not a
   // company-based browse, so it shouldn't be blocked by the checkboxes.
   const searchActive = !!(filters.searchText && filters.searchText.trim());
-  if(!searchActive){
+  if(premium && !searchActive){
     const checkedStudGroups = STUD_GROUPS.filter(g => filters.studGroups[g.key]);
     if(checkedStudGroups.length > 0 && !checkedStudGroups.some(g => matchesStudGroup(b, g))) return false;
   }
   // Genotype checkboxes (Kappa Casein, Genetic Recessive, Polled) — same
   // OR-within-a-trait logic as stud groups, applied independently per trait.
-  for(const traitKey in filters.genotypeFilters){
-    const checked = Object.keys(filters.genotypeFilters[traitKey]).filter(g => filters.genotypeFilters[traitKey][g]);
-    if(checked.length > 0 && !checked.includes(b[traitKey])) return false;
+  if(premium){
+    for(const traitKey in filters.genotypeFilters){
+      const checked = Object.keys(filters.genotypeFilters[traitKey]).filter(g => filters.genotypeFilters[traitKey][g]);
+      if(checked.length > 0 && !checked.includes(b[traitKey])) return false;
+    }
   }
   // Per-trait min/max range filters (raw trait value, not the score) —
   // a bull is excluded if it falls outside any active range, or if its
   // value for that trait is missing (can't confirm it's in range).
-  for(const key in filters.ranges){
-    const r = filters.ranges[key];
-    if(r.min == null && r.max == null) continue;
-    const v = b[key];
-    if(typeof v !== 'number') return false;
-    if(r.min != null && v < r.min) return false;
-    if(r.max != null && v > r.max) return false;
+  if(premium){
+    for(const key in filters.ranges){
+      const r = filters.ranges[key];
+      if(r.min == null && r.max == null) continue;
+      const v = b[key];
+      if(typeof v !== 'number') return false;
+      if(r.min != null && v < r.min) return false;
+      if(r.max != null && v > r.max) return false;
+    }
   }
   return true;
 }
@@ -894,8 +1248,10 @@ function renderSidebar(){
       <div class="presets">
         ${Object.entries(PRESETS).map(([k,p]) => {
           const bd = groupBreakdown(p.pcts);
+          const FREE_PRESETS = ['production', 'health'];
+          const locked = !isPremium() && !FREE_PRESETS.includes(k);
           return `<div class="preset-item">
-            <button class="preset-btn ${activePreset===k?'active':''}" data-preset="${k}">${p.label}</button>
+            <button class="preset-btn ${activePreset===k?'active':''} ${locked?'locked':''}" data-preset="${k}" ${locked?'data-locked="1"':''}>${p.label}</button>
             <div class="preset-breakdown-line">
               P ${(bd['Production']??0).toFixed(0)}% &middot;
               H&amp;E ${(bd['Health and Efficiency']??0).toFixed(0)}% &middot;
@@ -905,6 +1261,7 @@ function renderSidebar(){
         }).join('')}
       </div>
       <button class="reset-link" id="resetWeights">Reset to preset</button>
+      <button class="btn secondary" id="savePrefsBtn" style="width:100%; margin-top:10px;">${isPremium() ? '💾 Save my preferences' : '🔒 Save my preferences'}</button>
     </div>
 
     <div class="panel">
@@ -1071,6 +1428,10 @@ function renderSidebar(){
 
   document.querySelectorAll('.preset-btn').forEach(btn=>{
     btn.onclick = () => {
+      if(btn.dataset.locked){
+        promptUpgrade('Other presets are a Premium feature. Upgrade to unlock all five weighting presets.');
+        return;
+      }
       activePreset = btn.dataset.preset;
       const preset = PRESETS[activePreset];
       pcts = {...preset.pcts};
@@ -1160,6 +1521,8 @@ function renderSidebar(){
     btn.onclick = () => { delete filters.ranges[btn.dataset.rangekey]; render(); };
   });
 
+  applyFilterGating();
+
   document.getElementById('normalizeBtn').onclick = () => {
     const total = Object.values(pcts).reduce((a,b)=>a+b, 0) || 1;
     for (const t of TRAITS) pcts[t.key] = Math.round(pcts[t.key] / total * 1000) / 10; // 1 decimal place, sums to ~100
@@ -1180,11 +1543,15 @@ function renderShortlistBody(){
       <button class="rm" data-id="${b.naab||b.name}">remove</button>
     </div>`).join('');
   body.querySelectorAll('.rm').forEach(btn=>{
-    btn.onclick = () => { shortlist.delete(btn.dataset.id); render(); };
+    btn.onclick = () => { shortlist.delete(btn.dataset.id); pushStarredChange(btn.dataset.id, false); render(); };
   });
 }
 
 function exportShortlist(){
+  if(!isPremium()){
+    promptUpgrade('Downloading your starred list as a CSV is a Premium feature.');
+    return;
+  }
   const weights = pctToWeights(pcts);
   const items = BULLS.filter(b => shortlist.has(b.naab || b.name)).map(b=>({...b, score:computeScore(b, weights)}));
   const cols = ['name','naab','reg','a2','rel','nm','fat','pro','milk','dpr','sce','liv','mas','pl','scs','rpa','ucl','tlg','cw','bd','sta','hhrating','msprating','rfi','ruh','ruw','ftp','rtp','score'];
@@ -1308,7 +1675,7 @@ function renderMain(){
   const cols = activeColumns();
   const hasMore = list.length > shown.length;
 
-  const exportTopBtn = `<button class="btn secondary export-top-btn" id="exportTopBtn" ${shortlist.size===0?'disabled':''}>Export shortlist (CSV) — ${shortlist.size} bull${shortlist.size===1?'':'s'}</button>`;
+  const exportTopBtn = `<button class="btn secondary export-top-btn" id="exportTopBtn" ${(isPremium() && shortlist.size===0)?'disabled':''}>${isPremium() ? '' : '🔒 '}Export shortlist (CSV) — ${shortlist.size} bull${shortlist.size===1?'':'s'}</button>`;
 
   const toolbar = `
     <div class="toolbar">
@@ -1369,7 +1736,9 @@ function renderMain(){
   el.querySelectorAll('.star-btn').forEach(btn=>{
     btn.onclick = () => {
       const id = btn.dataset.id;
-      if(shortlist.has(id)) shortlist.delete(id); else shortlist.add(id);
+      const nowStarred = !shortlist.has(id);
+      if(nowStarred) shortlist.add(id); else shortlist.delete(id);
+      pushStarredChange(id, nowStarred);
       render();
     };
   });
