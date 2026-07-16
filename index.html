@@ -819,6 +819,8 @@ let authSession = null;   // Supabase auth session, or null if signed out
 let authProfile = null;   // row from public.profiles for the signed-in user
 let authModalMode = 'signin'; // 'signin' | 'signup'
 let authBusy = false;
+let savedPreferences = null;    // {weights, active_preset} loaded from saved_preferences, or null if never saved
+let usingSavedPreferences = false; // true when "My preferences" is the active selection rather than a named preset
 function isPremium(){ return !!(authProfile && authProfile.subscription_status === 'active'); }
 
 // ---------- Filter & weighting gating (Premium only) ----------
@@ -1010,14 +1012,19 @@ async function savePreferencesToServer(){
     user_id: authSession.user.id, weights: pcts, active_preset: activePreset, updated_at: new Date().toISOString()
   });
   if(error){ alert('Could not save preferences: ' + error.message); return; }
+  savedPreferences = { weights: {...pcts}, active_preset: activePreset };
+  usingSavedPreferences = true;
   alert('Preferences saved.');
+  render();
 }
 async function loadPreferencesFromServer(){
   if(!isPremium()) return;
   const { data, error } = await sb.from('saved_preferences').select('weights, active_preset').single();
-  if(error) return; // no saved row yet — not an error worth surfacing
+  if(error){ savedPreferences = null; return; } // no saved row yet — not an error worth surfacing
+  savedPreferences = { weights: data.weights, active_preset: data.active_preset };
   if(data.weights) pcts = data.weights;
   if(data.active_preset) activePreset = data.active_preset;
+  usingSavedPreferences = true; // returning user starts on their own saved setup, not a named preset
 }
 
 // ---------- Stripe checkout ----------
@@ -1045,24 +1052,38 @@ async function startCheckout(){
 
 // ---------- Wire it all together ----------
 async function initAuth(){
-  const { data: { session } } = await sb.auth.getSession();
-  authSession = session;
-  await loadProfile();
-  if(isPremium()){
-    await syncStarredFromServer();
-    await loadPreferencesFromServer();
-  }
-  renderAccountBar();
-  render(); // the earlier route()/render() call ran before auth resolved, with everything defaulted to free-tier gating — re-render now that we actually know the real session/premium state
-
-  sb.auth.onAuthStateChange(async (_event, session) => {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
     authSession = session;
     await loadProfile();
     if(isPremium()){
       await syncStarredFromServer();
       await loadPreferencesFromServer();
-    } else {
-      shortlist = new Set(); // signed out / not premium: don't keep a stale synced list around
+    }
+  } catch(err){
+    // If Supabase itself is unreachable/misconfigured (bad URL/key, network
+    // issue), fail safe into the signed-out state rather than leaving the
+    // account bar permanently blank — the rest of the app (free tier) still
+    // needs to work even if auth is broken.
+    console.error('Auth initialization failed — falling back to signed-out state:', err);
+    authSession = null;
+    authProfile = null;
+  }
+  renderAccountBar();
+  render(); // the earlier route()/render() call ran before auth resolved, with everything defaulted to free-tier gating — re-render now that we actually know the real session/premium state
+
+  sb.auth.onAuthStateChange(async (_event, session) => {
+    try {
+      authSession = session;
+      await loadProfile();
+      if(isPremium()){
+        await syncStarredFromServer();
+        await loadPreferencesFromServer();
+      } else {
+        shortlist = new Set(); // signed out / not premium: don't keep a stale synced list around
+      }
+    } catch(err){
+      console.error('Auth state change handling failed:', err);
     }
     renderAccountBar();
     render();
@@ -1249,12 +1270,19 @@ function renderSidebar(){
     <div class="panel">
       <h2>Presets</h2>
       <div class="presets">
+        ${savedPreferences && isPremium() ? `
+          <div class="preset-item">
+            <button class="preset-btn ${usingSavedPreferences?'active':''}" id="myPreferencesBtn">⭐ My preferences</button>
+            <div class="preset-breakdown-line">Your last saved weighting</div>
+          </div>
+        ` : ''}
         ${Object.entries(PRESETS).map(([k,p]) => {
           const bd = groupBreakdown(p.pcts);
           const FREE_PRESETS = ['production', 'health'];
           const locked = !isPremium() && !FREE_PRESETS.includes(k);
+          const active = activePreset===k && !usingSavedPreferences;
           return `<div class="preset-item">
-            <button class="preset-btn ${activePreset===k?'active':''} ${locked?'locked':''}" data-preset="${k}" ${locked?'data-locked="1"':''}>${p.label}</button>
+            <button class="preset-btn ${active?'active':''} ${locked?'locked':''}" data-preset="${k}" ${locked?'data-locked="1"':''}>${p.label}</button>
             <div class="preset-breakdown-line">
               P ${(bd['Production']??0).toFixed(0)}% &middot;
               H&amp;E ${(bd['Health and Efficiency']??0).toFixed(0)}% &middot;
@@ -1430,11 +1458,13 @@ function renderSidebar(){
   `;
 
   document.querySelectorAll('.preset-btn').forEach(btn=>{
+    if(!btn.dataset.preset) return; // the "My preferences" button is wired separately below
     btn.onclick = () => {
       if(btn.dataset.locked){
         promptUpgrade('Other presets are a Premium feature. Upgrade to unlock all five weighting presets.');
         return;
       }
+      usingSavedPreferences = false;
       activePreset = btn.dataset.preset;
       const preset = PRESETS[activePreset];
       pcts = {...preset.pcts};
@@ -1455,7 +1485,22 @@ function renderSidebar(){
       render();
     };
   });
-  document.getElementById('resetWeights').onclick = () => { pcts = {...PRESETS[activePreset].pcts}; render(); };
+  if(document.getElementById('myPreferencesBtn')){
+    document.getElementById('myPreferencesBtn').onclick = () => {
+      if(!savedPreferences) return;
+      pcts = {...savedPreferences.weights};
+      activePreset = savedPreferences.active_preset || activePreset;
+      usingSavedPreferences = true;
+      render();
+    };
+  }
+  document.getElementById('resetWeights').onclick = () => {
+    // Reset means different things depending on what's currently selected:
+    // back to the named preset's defaults, or back to your own last-saved
+    // weights if "My preferences" is what's active.
+    pcts = (usingSavedPreferences && savedPreferences) ? {...savedPreferences.weights} : {...PRESETS[activePreset].pcts};
+    render();
+  };
   document.getElementById('savePrefsBtn').onclick = () => {
     if(!isPremium()){ promptUpgrade('Saving your preferences so they\'re there next time you visit is a Premium feature.'); return; }
     savePreferencesToServer();
@@ -2013,6 +2058,21 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(err => {
       console.warn('Service worker registration failed (app still works online):', err);
     });
+  });
+
+  // Whenever a new service worker version (bumped CACHE_VERSION) finishes
+  // installing and takes control, reload once automatically so the update
+  // is visible immediately rather than needing a manual second refresh —
+  // a known quirk of how service worker updates normally apply. Only do
+  // this when an existing controller is being *replaced* — on a brand-new
+  // first-ever visit there's no prior controller, and reloading then would
+  // just be an unnecessary flicker rather than showing anyone anything new.
+  const hadController = !!navigator.serviceWorker.controller;
+  let swUpdateReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || swUpdateReloaded) return;
+    swUpdateReloaded = true;
+    window.location.reload();
   });
 }
 
