@@ -388,7 +388,7 @@
 
 
 <!-- Supabase client (auth + database) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ---- Supabase project config ----
 // Fill these in from your Supabase project's Settings -> API page.
@@ -396,7 +396,8 @@
 // Row Level Security policies set up server-side, it is not a secret.
 const SUPABASE_URL = 'https://oyaldjpjbjfmljtxyrfi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_5AicLOvC6hIZMIRPCVzpew_x2ZfQuKE';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const { createClient } = supabase; // the CDN script exposes a global `supabase` object with createClient on it
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script>
 // Bull data now lives in bulls_1.json (fetched below) instead of being
