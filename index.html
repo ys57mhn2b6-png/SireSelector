@@ -310,6 +310,14 @@
   ::-webkit-scrollbar-thumb:hover{background:var(--green-deep);}
 
   .foot-note{font-size:11px; color:var(--slate); line-height:1.5; margin-top:6px;}
+  .search-input-wrap{position:relative;}
+  .search-input-wrap input{width:100%; padding-right:26px; box-sizing:border-box;}
+  .search-clear-btn{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    background:none; border:none; font-size:16px; line-height:1; color:var(--slate);
+    cursor:pointer; padding:2px 4px;
+  }
+  .search-clear-btn:hover{color:var(--ink);}
   .active-filters-list{
     margin:6px 0 4px; padding-left:16px; font-size:11.5px; color:var(--ink); line-height:1.6;
   }
@@ -411,6 +419,14 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let BULLS = [];
 let ADDITIONAL_BULLS = null; // lazily fetched once the user starts searching, so the initial load stays fast
 let additionalBullsLoading = false;
+// Clears the search box (via its × button) and re-renders the full sidebar,
+// since the search panel's footnote/clear-button visibility need a real
+// rebuild here, unlike the live per-keystroke update above.
+function clearSearchBox(){
+  filters.searchText = '';
+  render();
+}
+
 function ensureAdditionalBullsLoaded(){
   if(ADDITIONAL_BULLS || additionalBullsLoading) return;
   additionalBullsLoading = true;
@@ -728,6 +744,31 @@ function pctToWeights(pcts){
   return weights;
 }
 
+// Rescales a pcts object so it sums to exactly 100.0, not just "close to
+// 100" — rounding every trait independently to 1 decimal place (as a naive
+// scale-and-round would) accumulates drift, landing on totals like 99.4 or
+// 100.6. This uses the largest-remainder method instead: scale everything,
+// round every trait DOWN to the nearest 0.1, then hand out the leftover
+// 0.1 increments one at a time to whichever traits had the largest
+// rounded-down remainder, until the total is exactly 100.0. Mutates and
+// returns the same pcts object.
+function normalizePctsToExactly100(pctsObj){
+  const total = Object.values(pctsObj).reduce((a,b)=>a+b, 0) || 1;
+  const keys = Object.keys(pctsObj);
+  const rawTenths = keys.map(k => pctsObj[k] / total * 1000); // exact scaled value, in tenths of a percent
+  const flooredTenths = rawTenths.map(Math.floor);
+  let remainder = 1000 - flooredTenths.reduce((a,b)=>a+b, 0); // how many 0.1-units short of exactly 100.0
+  const orderByLargestRemainder = keys
+    .map((k, i) => ({ i, frac: rawTenths[i] - flooredTenths[i] }))
+    .sort((a, b) => b.frac - a.frac);
+  for(let idx = 0; idx < orderByLargestRemainder.length && remainder > 0; idx++){
+    flooredTenths[orderByLargestRemainder[idx].i]++;
+    remainder--;
+  }
+  keys.forEach((k, i) => { pctsObj[k] = flooredTenths[i] / 10; });
+  return pctsObj;
+}
+
 // % of a given pcts object's total allocated to each trait group (Production,
 // Health and Efficiency, Type & Conformation, Genetics) — same "share of
 // whatever they add up to" logic as pctToWeights, just grouped instead of
@@ -1019,6 +1060,7 @@ async function pushStarredChange(naab, starred){
 // ---------- Saved-preferences sync (premium only) ----------
 async function savePreferencesToServer(){
   if(!isPremium()) return;
+  normalizePctsToExactly100(pcts); // saved weights should always sum to exactly 100%, regardless of whether the user remembered to click Normalize first
   const { error } = await sb.from('saved_preferences').upsert({
     user_id: authSession.user.id, weights: pcts, active_preset: activePreset, updated_at: new Date().toISOString()
   });
@@ -1077,10 +1119,16 @@ async function startCheckout(){
 }
 
 // ---------- Wire it all together ----------
+let lastKnownUserId = null; // tracks actual sign-in transitions, since Supabase's
+// event *name* alone ("SIGNED_IN") isn't a reliable signal — it can also fire
+// when a background tab regains focus and silently re-validates an existing
+// session, which is not a new sign-in and must not clobber unsaved local state.
+
 async function initAuth(){
   try {
     const { data: { session } } = await sb.auth.getSession();
     authSession = session;
+    lastKnownUserId = session?.user?.id || null;
     await loadProfile();
     if(isPremium()){
       await syncStarredFromServer();
@@ -1100,20 +1148,23 @@ async function initAuth(){
 
   sb.auth.onAuthStateChange(async (_event, session) => {
     try {
+      const newUserId = session?.user?.id || null;
+      // Only treat this as a genuine new sign-in if the actual user ID
+      // changed from what we already knew — not just because Supabase
+      // relabeled the same ongoing session as "SIGNED_IN" again (which it
+      // does on tab refocus/token refresh for the same already-logged-in
+      // user). This is what stops unsaved slider adjustments from being
+      // silently overwritten just from switching tabs or windows.
+      const isGenuinelyNewSignIn = newUserId && newUserId !== lastKnownUserId;
       authSession = session;
+      lastKnownUserId = newUserId;
       await loadProfile();
-      if(_event === 'SIGNED_IN'){
-        // Only a genuine sign-in should overwrite local state with the
-        // server's saved copy. Other events on this same listener — most
-        // importantly TOKEN_REFRESHED, which Supabase fires periodically
-        // and on tab focus/navigation — must NOT re-run this, or any
-        // unsaved slider adjustments get silently clobbered back to the
-        // last-saved values just from switching tabs or pages.
+      if(isGenuinelyNewSignIn){
         if(isPremium()){
           await syncStarredFromServer();
           await loadPreferencesFromServer();
         }
-      } else if(_event === 'SIGNED_OUT'){
+      } else if(!newUserId){
         shortlist = new Set(); // don't keep a stale synced list around
       }
     } catch(err){
@@ -1235,12 +1286,11 @@ function passesFilters(b){
     }
   }
   // Stud/AI-company checkboxes are OR'd together: if any are checked, a bull
-  // must match at least one of them to pass; if none are checked, no filtering.
-  // Skipped entirely while a search is active — typing a name/NAAB code is a
-  // targeted lookup (including bulls outside the 5 loaded companies), not a
-  // company-based browse, so it shouldn't be blocked by the checkboxes.
-  const searchActive = premium && !!(filters.searchText && filters.searchText.trim());
-  if(premium && !searchActive){
+  // must match at least one of them to pass; if none are checked, no
+  // filtering. This applies during search too — if you've filtered to a
+  // specific company, a search should stay within it rather than pulling in
+  // matches from other companies or the additional-sires list.
+  if(premium){
     const checkedStudGroups = STUD_GROUPS.filter(g => filters.studGroups[g.key]);
     if(checkedStudGroups.length > 0 && !checkedStudGroups.some(g => matchesStudGroup(b, g))) return false;
   }
@@ -1339,7 +1389,10 @@ function renderSidebar(){
       <h2>Search</h2>
       <div class="slider-row">
         <div class="top"><span class="name">Search name / NAAB code</span></div>
-        <input type="text" id="f_search" placeholder="e.g. Denovo or 007HO18093" value="${filters.searchText}" style="width:100%;">
+        <div class="search-input-wrap">
+          <input type="text" id="f_search" placeholder="e.g. Denovo or 007HO18093" value="${filters.searchText}">
+          ${filters.searchText ? `<button class="search-clear-btn" id="searchClearBtn" type="button" title="Clear search">×</button>` : ''}
+        </div>
       </div>
       <p class="foot-note" id="searchLoadedNote">Searches the ${BULLS.length.toLocaleString()} available bulls from ABS, Alta, Select Sires/WWS, Semex and ST Genetics and other bulls with NAAB codes and US genomic or proven data.</p>
     </div>
@@ -1378,7 +1431,7 @@ function renderSidebar(){
       </div>`; })()}
       ${(() => { const t = TRAITS.find(tr => tr.key === 'a2'); return `
         <div class="slider-row">
-          <label class="check" style="margin-bottom:6px;"><input type="checkbox" id="f_a2" ${filters.a2Only?'checked':''}> A2A2 only (filter)</label>
+          <label class="check" style="margin-bottom:6px;"><input type="checkbox" id="f_a2" ${filters.a2Only?'checked':''}> A2A2 only</label>
           <div class="top"><span class="name">${t.label}</span><span class="val" id="val_${t.key}">${pcts[t.key].toFixed(1)}%</span></div>
           <input type="range" data-key="${t.key}" min="0" max="35" step="0.1" value="${pcts[t.key]}">
           <div class="desc">${t.desc}</div>
@@ -1563,8 +1616,28 @@ function renderSidebar(){
   document.getElementById('f_search').oninput = e => {
     filters.searchText = e.target.value;
     if(filters.searchText.trim()) ensureAdditionalBullsLoaded();
+    // Show/hide the × button live without a full sidebar re-render (which
+    // would steal input focus mid-keystroke) — same targeted-update pattern
+    // as the range-filter live count.
+    const wrap = e.target.closest('.search-input-wrap');
+    let clearBtn = document.getElementById('searchClearBtn');
+    if(filters.searchText && !clearBtn){
+      clearBtn = document.createElement('button');
+      clearBtn.className = 'search-clear-btn';
+      clearBtn.id = 'searchClearBtn';
+      clearBtn.type = 'button';
+      clearBtn.title = 'Clear search';
+      clearBtn.textContent = '×';
+      clearBtn.onclick = clearSearchBox;
+      wrap.appendChild(clearBtn);
+    } else if(!filters.searchText && clearBtn){
+      clearBtn.remove();
+    }
     debouncedRenderMain(); // don't rebuild the sidebar mid-keystroke, just re-filter the table
   };
+  if(document.getElementById('searchClearBtn')){
+    document.getElementById('searchClearBtn').onclick = clearSearchBox;
+  }
 
   document.querySelectorAll('input[type=range][data-key]').forEach(inp => {
     inp.oninput = e => {
@@ -1634,8 +1707,7 @@ function renderSidebar(){
   applyFilterGating();
 
   document.getElementById('normalizeBtn').onclick = () => {
-    const total = Object.values(pcts).reduce((a,b)=>a+b, 0) || 1;
-    for (const t of TRAITS) pcts[t.key] = Math.round(pcts[t.key] / total * 1000) / 10; // 1 decimal place, sums to ~100
+    normalizePctsToExactly100(pcts);
     render();
   };
 
