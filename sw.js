@@ -8,7 +8,7 @@
 //    several MB. It's cached the first time it's actually fetched
 //    (stale-while-revalidate), so repeat searches work offline too without
 //    penalizing first load.
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 const APP_SHELL_CACHE = `sire-selector-shell-${CACHE_VERSION}`;
 const DATA_CACHE = `sire-selector-data-${CACHE_VERSION}`;
 

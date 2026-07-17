@@ -310,6 +310,10 @@
   ::-webkit-scrollbar-thumb:hover{background:var(--green-deep);}
 
   .foot-note{font-size:11px; color:var(--slate); line-height:1.5; margin-top:6px;}
+  .active-filters-list{
+    margin:6px 0 4px; padding-left:16px; font-size:11.5px; color:var(--ink); line-height:1.6;
+  }
+  .active-filters-list li{margin-bottom:1px;}
   .table-scroll{
     max-height:calc(100vh - 170px);
     overflow-x:scroll;
@@ -803,12 +807,16 @@ const PRESETS = {
   // (A2) carries no weighting — the a2Only filter below still restricts
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
   rdfl:      {label:'RDFL', pcts: {fat:15,pro:9,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
-    filters: { minRel:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
+    filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true } },
 };
 
 let pcts = {...PRESETS.production.pcts};
-let filters = {a2Only:false, excludeHaplotype:true, excludeClones:true, minRel:70, ranges:{}, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false}, genotypeFilters:{}, searchText:'', polledOnly:false, redOnly:false};
+// Reliability is filtered the same way as any other numeric trait — as a
+// min/max entry in filters.ranges (keyed 'rel') — rather than a separate
+// dedicated slider, so "Clear all filters" and the active-filter count/list
+// both cover it automatically instead of needing special-cased handling.
+let filters = {a2Only:false, excludeHaplotype:true, excludeClones:true, ranges:{}, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false}, genotypeFilters:{}, searchText:'', polledOnly:false, redOnly:false};
 // Health and Efficiency and Type & Conformation have the most sliders/filters
 // of any groups, so their bodies start collapsed behind an expander to keep
 // the sidebar manageable on first load; Production stays always expanded.
@@ -1094,11 +1102,19 @@ async function initAuth(){
     try {
       authSession = session;
       await loadProfile();
-      if(isPremium()){
-        await syncStarredFromServer();
-        await loadPreferencesFromServer();
-      } else {
-        shortlist = new Set(); // signed out / not premium: don't keep a stale synced list around
+      if(_event === 'SIGNED_IN'){
+        // Only a genuine sign-in should overwrite local state with the
+        // server's saved copy. Other events on this same listener — most
+        // importantly TOKEN_REFRESHED, which Supabase fires periodically
+        // and on tab focus/navigation — must NOT re-run this, or any
+        // unsaved slider adjustments get silently clobbered back to the
+        // last-saved values just from switching tabs or pages.
+        if(isPremium()){
+          await syncStarredFromServer();
+          await loadPreferencesFromServer();
+        }
+      } else if(_event === 'SIGNED_OUT'){
+        shortlist = new Set(); // don't keep a stale synced list around
       }
     } catch(err){
       console.error('Auth state change handling failed:', err);
@@ -1204,7 +1220,8 @@ function passesFilters(b){
     if(filters.redOnly && !b.red) return false;
     if(filters.excludeHaplotype && b.haplotype_carrier) return false;
     if(filters.excludeClones && typeof b.name === 'string' && b.name.endsWith('-ETN')) return false;
-    if(filters.minRel && (b.rel ?? 0) < filters.minRel) return false;
+    // Reliability (rel) is handled generically below, as filters.ranges.rel —
+    // same min/max mechanism as every other numeric trait.
   }
   // Free-text search against name and NAAB code — case-insensitive substring
   // match against either field. Premium only, same as every other filter —
@@ -1282,18 +1299,23 @@ function renderSidebar(){
   const groups = [...new Set(TRAITS.map(t=>t.group))];
   const el = document.getElementById('sidebar');
   const pctTotal = Object.values(pcts).reduce((a,b)=>a+b, 0);
-  const activeRangeCount = Object.values(filters.ranges).filter(r => r.min != null || r.max != null).length
-    + (filters.minRel > 0 ? 1 : 0);
+  const { count: activeFilterCount, descriptions: activeFilterDescriptions } = getActiveFilterInfo();
   el.innerHTML = `
     <div class="panel">
       <h2>Presets</h2>
       <div class="presets">
-        ${savedPreferences && isPremium() ? `
+        ${savedPreferences && isPremium() ? (() => {
+          const bd = groupBreakdown(savedPreferences.weights);
+          return `
           <div class="preset-item">
             <button class="preset-btn ${usingSavedPreferences?'active':''}" id="myPreferencesBtn">⭐ My preferences</button>
-            <div class="preset-breakdown-line">Your last saved weighting</div>
+            <div class="preset-breakdown-line">
+              P ${(bd['Production']??0).toFixed(0)}% &middot;
+              H&amp;E ${(bd['Health and Efficiency']??0).toFixed(0)}% &middot;
+              T&amp;C ${(bd['Type & Conformation']??0).toFixed(0)}%
+            </div>
           </div>
-        ` : ''}
+        `; })() : ''}
         ${Object.entries(PRESETS).map(([k,p]) => {
           const bd = groupBreakdown(p.pcts);
           const FREE_PRESETS = ['production', 'health'];
@@ -1324,8 +1346,9 @@ function renderSidebar(){
 
     <div class="panel">
       <h2>Filters</h2>
-      <p class="foot-note">Per-trait range filters (exclude sires outside a min/max) are under each trait's slider below. <span id="rangeActiveText">${activeRangeCount>0 ? `<b>${activeRangeCount} active.</b>` : 'None active.'}</span></p>
-      <span id="clearRangesWrap">${activeRangeCount>0 ? `<button class="reset-link" id="clearRanges">Clear all range filters</button>` : ''}</span>
+      <p class="foot-note">Filters are check boxes for traits like kappa casein and recessive conditions and min/ max ranges for numerical traits. <span id="rangeActiveText">${activeFilterCount>0 ? `<b>${activeFilterCount} active.</b>` : 'None active.'}</span></p>
+      ${activeFilterCount>0 ? `<ul class="active-filters-list" id="activeFiltersList">${activeFilterDescriptions.map(d => `<li>${d}</li>`).join('')}</ul>` : ''}
+      <span id="clearRangesWrap">${activeFilterCount>0 ? `<button class="reset-link" id="clearRanges">Clear all filters</button>` : ''}</span>
     </div>
 
     <div class="panel">
@@ -1341,10 +1364,18 @@ function renderSidebar(){
 
     <div class="panel">
       <h2>Genetics</h2>
+      ${(() => { const r = filters.ranges.rel || {}; const hasRange = r.min != null || r.max != null; return `
       <div class="slider-row">
-        <div class="top"><span class="name">Min reliability (Rel%)</span><span class="val" id="val_minrel">${filters.minRel}</span></div>
-        <input type="range" id="f_rel" min="0" max="90" step="5" value="${filters.minRel}">
-      </div>
+        <div class="top"><span class="name">Reliability (Rel%)</span></div>
+        <div class="range-row">
+          <div class="range-inputs">
+            <input type="number" step="any" min="0" max="90" class="range-min" data-rangekey="rel" placeholder="min" value="${r.min ?? ''}">
+            <span>–</span>
+            <input type="number" step="any" min="0" max="90" class="range-max" data-rangekey="rel" placeholder="max" value="${r.max ?? ''}">
+            ${hasRange ? `<button class="range-clear" data-rangekey="rel" title="Clear this range">×</button>` : ''}
+          </div>
+        </div>
+      </div>`; })()}
       ${(() => { const t = TRAITS.find(tr => tr.key === 'a2'); return `
         <div class="slider-row">
           <label class="check" style="margin-bottom:6px;"><input type="checkbox" id="f_a2" ${filters.a2Only?'checked':''}> A2A2 only (filter)</label>
@@ -1463,7 +1494,7 @@ function renderSidebar(){
     }).join('')}
 
     <div class="panel">
-      <h2>Importance total <span class="count">(${pctTotal.toFixed(1)}%)</span></h2>
+      <h2>Importance total <span class="count" id="pctTotalDisplay">(${pctTotal.toFixed(1)}%)</span></h2>
       <p class="foot-note">Sliders don't need to total exactly 100 — every score uses each slider's <i>share</i> of whatever the current total is, so relative importance is what matters, not the raw total. Hit Normalize to see the actual percentages being used, rescaled to sum to 100%.</p>
       <button class="btn secondary" id="normalizeBtn" style="width:100%; margin-top:8px;">Normalize to 100%</button>
     </div>
@@ -1490,7 +1521,7 @@ function renderSidebar(){
       // also bundle filter/direction settings (currently only RDFL does) —
       // apply those too when present, leaving everything else untouched.
       if(preset.filters){
-        if('minRel' in preset.filters) filters.minRel = preset.filters.minRel;
+        if('relMin' in preset.filters) filters.ranges.rel = {min: preset.filters.relMin, max: null};
         if('a2Only' in preset.filters) filters.a2Only = preset.filters.a2Only;
         if('excludeClones' in preset.filters) filters.excludeClones = preset.filters.excludeClones;
         if('excludeHaplotype' in preset.filters) filters.excludeHaplotype = preset.filters.excludeHaplotype;
@@ -1534,24 +1565,33 @@ function renderSidebar(){
     if(filters.searchText.trim()) ensureAdditionalBullsLoaded();
     debouncedRenderMain(); // don't rebuild the sidebar mid-keystroke, just re-filter the table
   };
-  document.getElementById('f_rel').oninput = e => {
-    filters.minRel = +e.target.value;
-    document.getElementById('val_minrel').textContent = filters.minRel;
-    updateRangeFilterUI();
-    debouncedRenderMain();
-  };
 
   document.querySelectorAll('input[type=range][data-key]').forEach(inp => {
     inp.oninput = e => {
       const k = e.target.dataset.key;
       pcts[k] = +e.target.value;
       document.getElementById('val_'+k).textContent = pcts[k].toFixed(1)+'%';
+      const totalEl = document.getElementById('pctTotalDisplay');
+      if(totalEl){
+        const total = Object.values(pcts).reduce((a,b)=>a+b, 0);
+        totalEl.textContent = `(${total.toFixed(1)}%)`;
+      }
       debouncedRenderMain(); // instant label, table catches up once dragging pauses
     };
   });
 
   if(document.getElementById('clearRanges')){
-    document.getElementById('clearRanges').onclick = () => { filters.ranges = {}; render(); };
+    document.getElementById('clearRanges').onclick = () => {
+      filters.ranges = {};
+      filters.a2Only = false;
+      filters.polledOnly = false;
+      filters.redOnly = false;
+      filters.excludeHaplotype = false;
+      filters.excludeClones = false;
+      filters.studGroups = Object.fromEntries(STUD_GROUPS.map(g => [g.key, false]));
+      filters.genotypeFilters = {};
+      render();
+    };
   }
   document.querySelectorAll('input[data-studkey]').forEach(inp => {
     inp.onchange = e => { filters.studGroups[e.target.dataset.studkey] = e.target.checked; render(); };
@@ -1606,7 +1646,8 @@ function renderShortlistBody(){
   const body = document.getElementById('shortlistBody');
   if(!body) return;
   if(shortlist.size === 0){ body.innerHTML = `<div class="foot-note">Star bulls in the table to add them here.</div>`; return; }
-  const items = BULLS.filter(b => shortlist.has(b.naab || b.name));
+  const allKnownBulls = ADDITIONAL_BULLS ? BULLS.concat(ADDITIONAL_BULLS) : BULLS;
+  const items = allKnownBulls.filter(b => shortlist.has(b.naab || b.name));
   body.innerHTML = items.map(b => `
     <div class="shortlist-row">
       <span>${b.name}</span>
@@ -1623,7 +1664,8 @@ function exportShortlist(){
     return;
   }
   const weights = pctToWeights(pcts);
-  const items = BULLS.filter(b => shortlist.has(b.naab || b.name)).map(b=>({...b, score:computeScore(b, weights)}));
+  const allKnownBulls = ADDITIONAL_BULLS ? BULLS.concat(ADDITIONAL_BULLS) : BULLS;
+  const items = allKnownBulls.filter(b => shortlist.has(b.naab || b.name)).map(b=>({...b, score:computeScore(b, weights)}));
   const cols = ['name','naab','reg','a2','rel','nm','fat','pro','milk','dpr','sce','liv','mas','pl','scs','rpa','ucl','tlg','cw','bd','sta','hhrating','msprating','rfi','ruh','ruw','ftp','rtp','score'];
   const rows = [cols.join(',')].concat(items.map(b => cols.map(c => {
     let v = c==='score' ? b.score.toFixed(1) : b[c];
@@ -1825,21 +1867,57 @@ function renderMain(){
   wireExportTopBtn();
 }
 
-// Recomputes the active-range-filter count and clear-all button without
+// ---------- Active filter summary (count + human-readable descriptions) ----------
+// Covers every filter type — checkboxes (A2A2, polled/red, exclude
+// haplotype/clones, marketing company, genotype checks) and min/max ranges
+// (including reliability, which lives in filters.ranges.rel like any other
+// numeric trait) — so the count and the readable list can never drift out
+// of sync with each other or with what passesFilters() actually enforces.
+function getActiveFilterInfo(){
+  const descriptions = [];
+  if(filters.a2Only) descriptions.push('A2A2 only');
+  if(filters.polledOnly) descriptions.push('Polled only');
+  if(filters.redOnly) descriptions.push('Red factor only');
+  if(filters.excludeHaplotype) descriptions.push('Exclude genetic recessive carriers');
+  if(filters.excludeClones) descriptions.push('Exclude clones');
+  const checkedStudGroups = STUD_GROUPS.filter(g => filters.studGroups[g.key]);
+  if(checkedStudGroups.length > 0) descriptions.push('Marketing company: ' + checkedStudGroups.map(g=>g.label).join(', '));
+  for(const traitKey in filters.genotypeFilters){
+    const checked = Object.keys(filters.genotypeFilters[traitKey]).filter(g => filters.genotypeFilters[traitKey][g]);
+    if(checked.length > 0){
+      const t = EXTRA_TRAITS.find(t => t.key === traitKey);
+      descriptions.push((t ? t.label : traitKey) + ': ' + checked.join(', '));
+    }
+  }
+  for(const key in filters.ranges){
+    const r = filters.ranges[key];
+    if(r.min == null && r.max == null) continue;
+    const label = key === 'rel' ? 'Reliability' : (TRAITS.find(t => t.key === key)?.label || key);
+    let desc;
+    if(r.min != null && r.max != null) desc = `${label}: ${r.min}\u2013${r.max}`;
+    else if(r.min != null) desc = `${label}: \u2265 ${r.min}`;
+    else desc = `${label}: \u2264 ${r.max}`;
+    descriptions.push(desc);
+  }
+  return { count: descriptions.length, descriptions };
+}
+
+// Recomputes the active-filter count/list and clear-all button without
 // rebuilding the whole sidebar, so typing in a min/max box doesn't steal
 // focus away from the input. Called on every keystroke; the full render()
 // (which also rebuilds this HTML from scratch) stays in sync since it reads
-// the same activeRangeCount logic.
+// the same getActiveFilterInfo() logic.
 function updateRangeFilterUI(){
-  const activeRangeCount = Object.values(filters.ranges).filter(r => r.min != null || r.max != null).length
-    + (filters.minRel > 0 ? 1 : 0);
+  const { count, descriptions } = getActiveFilterInfo();
   const textEl = document.getElementById('rangeActiveText');
-  if(textEl) textEl.innerHTML = activeRangeCount>0 ? `<b>${activeRangeCount} active.</b>` : 'None active.';
+  if(textEl) textEl.innerHTML = count>0 ? `<b>${count} active.</b>` : 'None active.';
+  const listEl = document.getElementById('activeFiltersList');
+  if(listEl) listEl.innerHTML = descriptions.map(d => `<li>${d}</li>`).join('');
   const wrapEl = document.getElementById('clearRangesWrap');
   if(wrapEl){
-    wrapEl.innerHTML = activeRangeCount>0 ? `<button class="reset-link" id="clearRanges">Clear all range filters</button>` : '';
+    wrapEl.innerHTML = count>0 ? `<button class="reset-link" id="clearRanges">Clear all filters</button>` : '';
     const btn = document.getElementById('clearRanges');
-    if(btn) btn.onclick = () => { filters.ranges = {}; render(); };
+    if(btn) btn.onclick = () => { filters.ranges = {}; filters.a2Only = false; filters.polledOnly = false; filters.redOnly = false; filters.excludeHaplotype = false; filters.excludeClones = false; filters.studGroups = Object.fromEntries(STUD_GROUPS.map(g => [g.key, false])); filters.genotypeFilters = {}; render(); };
   }
 }
 
