@@ -530,13 +530,17 @@ const MAD = {
   // the same 105-bull reference population. This keeps them on the same
   // weight-share footing as every other trait despite not being centered
   // on the average.
-  ftp:0.6205, rtp:0.7818, ucl:0.7590,
+  // rls: now a fixed-optimum deviation trait too (0 = optimum, no
+  // one-directional option), same style and same reference population as
+  // ftp/rtp/ucl above.
+  ftp:0.6205, rtp:0.7818, ucl:0.7590, rls:0.7862,
   // msprating: CDN-style rating trait like hhrating/cw/bd — standard MAD from AVG.
   msprating:2.6843,
   // trw: standard type trait, standard MAD from AVG.
   trw:0.7143,
-  // 8 new linear type traits, standard MAD from AVG.
-  str:0.7856, dfm:0.6676, fta:0.7877, rls:0.7687, fua:0.8331, udp:0.8039, rlr:0.9136, fls:0.6575,
+  // 8 new linear type traits, standard MAD from AVG. (rls moved above —
+  // it's now a fixed deviation trait, not scored from the average.)
+  str:0.7856, dfm:0.6676, fta:0.7877, fua:0.8331, udp:0.8039, rlr:0.9136, fls:0.6575,
   // Same population, standard MAD from AVG, for the newly-scored traits.
   met:0.6804, rpl:0.4659, dab:0.4164, ket:0.8176, mfv:0.0851, efc:1.9291,
   hlv:0.4370, fs:148.2476, dce:0.2743, ssb:0.3211, dsb:0.5055, hcr:1.1468,
@@ -554,18 +558,30 @@ const K = 201.7223;
 // MAD computed from a fixed optimum of 0 (not the population average) for
 // traits that can be toggled into symmetric "deviation" scoring — same
 // 105-bull reference population, same style as ftp/rtp's own MAD values.
-// Only sta and rpa are toggleable today; ftp/rtp are permanently deviation
-// traits and already use this style via their entries in MAD above.
-const DEV_MAD = { sta:0.8536, rpa:0.9176 };
-const TOGGLEABLE_DEVIATION = { sta:true, rpa:true };
+// sta, rpa, udp, and tlg are toggleable today; ftp/rtp/ucl/rls are
+// permanently deviation traits and already use this style via their
+// entries in MAD above (not here).
+const DEV_MAD = { sta:0.8536, rpa:0.9176, udp:0.8210, tlg:0.5377 };
+const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true };
 
-// Default is the original one-directional setup for sta and rpa (matching
-// RDFL, the app's default preset): reward short/penalize tall for
-// stature, reward sloped/penalize high pins for rump angle. Unchecking
-// either switches that trait to symmetric/deviation scoring instead
-// (0 = optimum, penalized either direction, same shape as ftp/rtp) — see
-// SIGN.rpa below for the sign convention this depends on.
-let useOriginalDirection = { sta:true, rpa:true };
+// Default is the original one-directional setup for sta, rpa, udp, and tlg
+// (matching RDFL, the app's default preset): reward short/penalize tall for
+// stature, reward sloped/penalize high pins for rump angle, reward
+// shallow/penalize deep for udder depth, reward long/penalize short for
+// teat length. Unchecking any of these switches that trait to
+// symmetric/deviation scoring instead (0 = optimum, penalized either
+// direction, same shape as ftp/rtp) — see each trait's SIGN entry below
+// for the sign convention this depends on.
+let useOriginalDirection = { sta:true, rpa:true, udp:true, tlg:true };
+
+// Milk is the one trait whose desirable DIRECTION (not just importance)
+// genuinely depends on the user's own situation — whether more milk helps
+// or hurts depends on how milk is paid for. true = positive contribution
+// (more milk = better), false = negative (more milk = worse, e.g. diluted
+// components). Defaults per preset are set in PRESETS below; this is just
+// the initial value before any preset/toggle has run.
+const SIGN_TOGGLEABLE = { milk: true };
+let positiveDirection = { milk: true };
 
 // Direction each trait pulls the score (fixed, not user-adjustable — a
 // percentage slider sets IMPORTANCE/magnitude only; it says nothing about
@@ -575,15 +591,19 @@ const SIGN = {
   fat:1, pro:1, milk:-1, dpr:1, sce:-1, liv:1, mas:1, pl:1, scs:-1,
   rpa:1, tlg:1, cw:1, bd:1, sta:-1, hhrating:1, rfi:-1, a2:1,
   ruh:1, ruw:1, msprating:1, trw:1,
-  // The 8 traits below are simple linear (higher = better) here for
+  // milk:-1 above is just the "unchecked" fallback value for the sign
+  // toggle (see SIGN_TOGGLEABLE/positiveDirection) — whichever state the
+  // checkbox is in actually decides the sign used at scoring time.
+  //
+  // The 7 traits below are simple linear (higher = better) here for
   // consistency with the rest of the model, same as ruh/ruw/trw above.
   // Worth flagging: several of these (leg-set and foot-angle traits
   // especially) have a real-world curvilinear ideal — too straight or too
   // sickled is bad — rather than "more is always better". This app doesn't
-  // model that nuance for these traits (only sta/rpa/ftp/rtp get the
-  // zero-optimum deviation treatment), so treat their weighting as a rough
-  // linear proxy, not a precise curvilinear-optimum score.
-  str:1, dfm:1, fta:1, rls:1, fua:1, udp:1, rlr:1, fls:1,
+  // model that nuance for these traits (only sta/rpa/udp/tlg/ftp/rtp/ucl/rls
+  // get the zero-optimum deviation treatment), so treat their weighting as
+  // a rough linear proxy, not a precise curvilinear-optimum score.
+  str:1, dfm:1, fta:1, fua:1, udp:1, rlr:1, fls:1,
   // Newly-scored traits. met/rpl/dab/ket/mfv (health-event resistance),
   // efc/hlv/hcr/ccr (fertility/livability), fs (feed saved), and
   // fatpct/propct (component %) are all higher-is-better. dce/ssb/dsb
@@ -594,10 +614,10 @@ const SIGN = {
   // gl: shorter gestation is generally preferred (easier calving, more days
   // open to recover), same lower-is-better convention as sce/dce/ssb/dsb.
   gl:-1,
-  // ftp/rtp/ucl are deviation traits (see TRAITS below): SIGN here just means
-  // "more deviation = -1 direction", i.e. always subtracts from the score
-  // as |value| grows, regardless of which way the value points.
-  ftp:-1, rtp:-1, ucl:-1,
+  // ftp/rtp/ucl/rls are deviation traits (see TRAITS below): SIGN here just
+  // means "more deviation = -1 direction", i.e. always subtracts from the
+  // score as |value| grows, regardless of which way the value points.
+  ftp:-1, rtp:-1, ucl:-1, rls:-1,
 };
 
 // Trait metadata: label, group, default % share of total absolute
@@ -608,7 +628,8 @@ const TRAITS = [
   {key:'pro', label:'Protein', group:'Production', defPct:9.13, source:'core',
    desc:''},
   {key:'milk', label:'Milk', group:'Production', defPct:7.15, source:'core',
-   desc:''},
+   signToggleLabel:'Positive contribution (more milk = better)',
+   desc:'Whether more milk helps or hurts your score depends on how your milk payments are structured. Check/uncheck below to set this.'},
   {key:'fatpct', label:'Fat % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
    desc:''},
   {key:'propct', label:'Pro % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
@@ -680,8 +701,8 @@ const TRAITS = [
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'trw', label:'Thurl Width (TRW)', group:'Type & Conformation', defPct:0, source:'added',
    desc:''},
-  {key:'rls', label:'Rear Legs-Side (RLS)', group:'Type & Conformation', defPct:0, source:'added',
-   desc:''},
+  {key:'rls', label:'Rear Legs-Side (RLS)', group:'Type & Conformation', defPct:0, source:'added', deviation:true,
+   desc:'0 is optimum and any deviation is penalized.'},
   {key:'rlr', label:'Rear Legs-Rear (RLR)', group:'Type & Conformation', defPct:0, source:'added',
    desc:''},
   {key:'fta', label:'Foot Angle (FTA)', group:'Type & Conformation', defPct:0, source:'added',
@@ -697,13 +718,15 @@ const TRAITS = [
   {key:'ucl', label:'Udder Cleft (UCL)', group:'Type & Conformation', defPct:5.44, source:'core', deviation:true,
    desc:'Any deviation from zero reduce score.'},
   {key:'udp', label:'Udder Depth (UDP)', group:'Type & Conformation', defPct:0, source:'added',
-   desc:''},
+   toggleLabel:'Reward shallow, penalize deep',
+   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'ftp', label:'Front Teat Placement (FTP)', group:'Type & Conformation', defPct:0, source:'added', deviation:true,
    desc:'Any deviation from 0 reduces score.'},
   {key:'rtp', label:'Rear Teat Placement (RTP)', group:'Type & Conformation', defPct:0, source:'added', deviation:true,
    desc:'Any deviation from 0 reduces score.'},
   {key:'tlg', label:'Teat Length (TLG)', group:'Type & Conformation', defPct:3.40, source:'core',
-   desc:''},
+   toggleLabel:'Reward long, penalize short',
+   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
 
   {key:'a2', label:'Beta Casein', group:'Genetics', defPct:0, source:'derived',
    desc:'Rewards A2A2 and penalizes A1A1.'},
@@ -760,7 +783,10 @@ function pctToWeights(pcts){
       // trait's normal SIGN entry, and MAD is measured from 0, not AVG.
       weights[t.key] = -1 * (normalizedPct/100 * K) / DEV_MAD[t.key];
     } else {
-      weights[t.key] = SIGN[t.key] * (normalizedPct/100 * K) / MAD[t.key];
+      // For sign-toggleable traits (currently just milk), the checkbox
+      // state decides the sign instead of the fixed SIGN constant.
+      const sign = SIGN_TOGGLEABLE[t.key] ? (positiveDirection[t.key] ? 1 : -1) : SIGN[t.key];
+      weights[t.key] = sign * (normalizedPct/100 * K) / MAD[t.key];
     }
   }
   return weights;
@@ -822,13 +848,15 @@ function groupBreakdown(pcts){
 // each) but with Rump Angle left at 0. Still sums to exactly 35/35/30.
 const PRESETS = {
   balanced:  {label:'Balanced', pcts: {fat:18,pro:11,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
-    filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} } },
+    filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
+    direction: { milk:false } },
   // Production focus: Fat/Protein at 30/25, Milk at 0; Health and Efficiency
   // uses the same flat RDFL weights (DPR, SCE, LIV, MAS, RFI, Hoof Health,
   // Milking Speed at 5 each); Type & Conformation only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
   production:{label:'Production focus', pcts: {fat:30,pro:25,milk:0,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
-    filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} } },
+    filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
+    direction: { milk:true } },
   // Health and efficiency focus: Fat/Protein/Milk at 10/8/7. Health and
   // Efficiency weights 13 traits flat at 5% each — LIV, HLV, DPR, SCE, EFC,
   // DCE, SSB, DSB, MAS, SCS, Hoof Health, Milking Speed, RFI. Type &
@@ -836,7 +864,8 @@ const PRESETS = {
   // Feet & Legs Score at 5% each, everything else at 0. A2A2 filter is on
   // for this preset (along with RDFL) — every other preset leaves it off.
   health:    {label:'Health and efficiency focus', pcts: {fat:10,pro:8,milk:7,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
-    filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} } },
+    filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
+    direction: { milk:true } },
   // Type & conformation focus: rpa/ucl/tlg/cw/bd/sta/hhrating/ruh/ruw/ftp/rtp
   // rescaled by 57/60 to make room for trw (3.00) inside the group's 60%
   // target, so Production 20 / Health and Efficiency 20 / Type & Conformation
@@ -852,7 +881,7 @@ const PRESETS = {
   // rather than the reward-short/reward-sloped one-directional scoring.
   type:      {label:'Type & conformation focus', pcts: {fat:10.00,pro:10.00,milk:0,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { rpa:false, sta:false } },
+    direction: { rpa:false, sta:false, milk:true } },
 
   // RDFL: same relative weights as Balanced, just rescaled so they sum to
   // exactly 100.00 (Balanced's own raw numbers add up to 100.01 — harmless
@@ -871,7 +900,7 @@ const PRESETS = {
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
   rdfl:      {label:'RDFL', pcts: {fat:15,pro:9,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
-    direction: { rpa:true, sta:true } },
+    direction: { rpa:true, sta:true, milk:false } },
 };
 
 let pcts = {...PRESETS.production.pcts};
@@ -1522,6 +1551,7 @@ function renderSidebar(){
         const r = filters.ranges[t.key] || {};
         const hasRange = r.min != null || r.max != null;
         const toggleable = TOGGLEABLE_DEVIATION[t.key];
+        const signToggleable = SIGN_TOGGLEABLE[t.key];
         return `
         <div class="slider-row">
           <div class="top"><span class="name">${t.label}</span><span class="val" id="val_${t.key}">${pcts[t.key].toFixed(1)}%</span></div>
@@ -1530,6 +1560,11 @@ function renderSidebar(){
           <label class="check direction-toggle">
             <input type="checkbox" data-directionkey="${t.key}" ${useOriginalDirection[t.key]?'checked':''}>
             ${t.toggleLabel}
+          </label>` : ''}
+          ${signToggleable ? `
+          <label class="check direction-toggle">
+            <input type="checkbox" data-signkey="${t.key}" ${positiveDirection[t.key]?'checked':''}>
+            ${t.signToggleLabel}
           </label>` : ''}
           <input type="range" data-key="${t.key}" min="0" max="35" step="0.1" value="${pcts[t.key]}">
           <div class="range-row">
@@ -1616,7 +1651,7 @@ function renderSidebar(){
       <h2>Your Shortlist <span class="count">(${shortlist.size})</span></h2>
       <div id="shortlistBody"></div>
     </div>
-    <p class="foot-note">Each slider sets a trait's <i>importance</i> only. Direction (higher/lower is better) is fixed for most traits, except Stature and Rump Angle, which can be switched between symmetric (0 = optimum, deviation penalized either way) and one-directional scoring using the checkboxes under those two sliders.</p>
+    <p class="foot-note">Each slider sets a trait's <i>importance</i> only. Direction (higher/lower is better) is fixed for most traits. The exceptions are Milk, whose contribution can be set positive or negative depending on how your milk payments are structured, and four type traits — Stature, Rump Angle, Udder Depth, and Teat Length — which can each be switched between symmetric (0 = optimum, deviation penalized either way) and one-directional scoring using the checkboxes under those sliders. Rear Legs-Side always scores with 0 as the optimum; it has no one-directional option.</p>
   `;
 
   document.querySelectorAll('.preset-btn').forEach(btn=>{
@@ -1643,6 +1678,7 @@ function renderSidebar(){
       if(preset.direction){
         if('rpa' in preset.direction) useOriginalDirection.rpa = preset.direction.rpa;
         if('sta' in preset.direction) useOriginalDirection.sta = preset.direction.sta;
+        if('milk' in preset.direction) positiveDirection.milk = preset.direction.milk;
       }
       render();
     };
@@ -1731,6 +1767,9 @@ function renderSidebar(){
   });
   document.querySelectorAll('input[data-directionkey]').forEach(inp => {
     inp.onchange = e => { useOriginalDirection[e.target.dataset.directionkey] = e.target.checked; render(); };
+  });
+  document.querySelectorAll('input[data-signkey]').forEach(inp => {
+    inp.onchange = e => { positiveDirection[e.target.dataset.signkey] = e.target.checked; render(); };
   });
   document.querySelectorAll('button[data-expandkey]').forEach(btn => {
     btn.onclick = () => {
