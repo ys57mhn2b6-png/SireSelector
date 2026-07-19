@@ -1114,22 +1114,32 @@ async function pushStarredChange(naab, starred){
 async function savePreferencesToServer(){
   if(!isPremium()) return;
   normalizePctsToExactly100(pcts); // saved weights should always sum to exactly 100%, regardless of whether the user remembered to click Normalize first
+  const direction = { useOriginalDirection: {...useOriginalDirection}, positiveDirection: {...positiveDirection} };
   const { error } = await sb.from('saved_preferences').upsert({
-    user_id: authSession.user.id, weights: pcts, active_preset: activePreset, updated_at: new Date().toISOString()
+    user_id: authSession.user.id, weights: pcts, active_preset: activePreset,
+    filters: filters, direction: direction, updated_at: new Date().toISOString()
   });
   if(error){ alert('Could not save preferences: ' + error.message); return; }
-  savedPreferences = { weights: {...pcts}, active_preset: activePreset };
+  savedPreferences = { weights: {...pcts}, active_preset: activePreset,
+    filters: JSON.parse(JSON.stringify(filters)), direction: JSON.parse(JSON.stringify(direction)) };
   usingSavedPreferences = true;
   alert('Preferences saved.');
   render();
 }
 async function loadPreferencesFromServer(){
   if(!isPremium()) return;
-  const { data, error } = await sb.from('saved_preferences').select('weights, active_preset').single();
+  const { data, error } = await sb.from('saved_preferences').select('weights, active_preset, filters, direction').single();
   if(error){ savedPreferences = null; return; } // no saved row yet — not an error worth surfacing
-  savedPreferences = { weights: data.weights, active_preset: data.active_preset };
+  savedPreferences = { weights: data.weights, active_preset: data.active_preset, filters: data.filters, direction: data.direction };
   if(data.weights) pcts = data.weights;
   if(data.active_preset) activePreset = data.active_preset;
+  // filters/direction are new columns — older saved rows may not have them
+  // yet, so only apply if present rather than wiping current defaults.
+  if(data.filters) filters = JSON.parse(JSON.stringify(data.filters));
+  if(data.direction){
+    if(data.direction.useOriginalDirection) useOriginalDirection = {...useOriginalDirection, ...data.direction.useOriginalDirection};
+    if(data.direction.positiveDirection) positiveDirection = {...positiveDirection, ...data.direction.positiveDirection};
+  }
   usingSavedPreferences = true; // returning user starts on their own saved setup, not a named preset
 }
 
@@ -1688,6 +1698,11 @@ function renderSidebar(){
       if(!savedPreferences) return;
       pcts = {...savedPreferences.weights};
       activePreset = savedPreferences.active_preset || activePreset;
+      if(savedPreferences.filters) filters = JSON.parse(JSON.stringify(savedPreferences.filters));
+      if(savedPreferences.direction){
+        if(savedPreferences.direction.useOriginalDirection) useOriginalDirection = {...useOriginalDirection, ...savedPreferences.direction.useOriginalDirection};
+        if(savedPreferences.direction.positiveDirection) positiveDirection = {...positiveDirection, ...savedPreferences.direction.positiveDirection};
+      }
       usingSavedPreferences = true;
       render();
     };
