@@ -1,118 +1,94 @@
 // supabase/functions/create-portal-session/index.ts
 //
-// Creates a Stripe Billing Portal session for the authenticated user so they
-// can manage/cancel their own subscription, instead of only via the Stripe
-// dashboard.
+// Called from the frontend via: sb.functions.invoke('create-portal-session', { body: { returnUrl } })
+// Creates a Stripe Billing Portal session for the signed-in user so they can
+// manage/cancel their own subscription, instead of only via the Stripe dashboard.
 //
-// Deploy with: supabase functions deploy create-portal-session
-// Requires these secrets (same pattern as create-checkout-session / stripe-webhook):
-//   STRIPE_SECRET_KEY
-//   SUPABASE_URL              (auto-provided by Supabase)
-//   SUPABASE_ANON_KEY         (auto-provided by Supabase)
-//   SUPABASE_SERVICE_ROLE_KEY (auto-provided by Supabase)
+// Required secrets (same as create-checkout-session — no new ones needed):
+//   STRIPE_SECRET_KEY   — your Stripe secret key (sk_live_... or sk_test_...)
+//   SUPABASE_URL              — auto-provided by the platform
+//   SUPABASE_ANON_KEY         — auto-provided by the platform
+//   SUPABASE_SERVICE_ROLE_KEY — auto-provided by the platform
+//   APP_URL              — optional fallback return URL, same as checkout function
 //
-// NOTE: verify the Stripe npm specifier/version and apiVersion string below
-// against Stripe's current docs before deploying — I can't check those live
-// from here.
+// NOTE before going live: in the Stripe Dashboard, go to
+// Settings → Billing → Customer portal and activate/configure it
+// (test mode first, then again separately in live mode).
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "npm:stripe@14.21.0";
+import Stripe from 'npm:stripe@17';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
-  apiVersion: "2023-10-16", // verify this is still current for your Stripe account/SDK
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
+  apiVersion: '2026-06-24.dahlia',
 });
 
-serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Client scoped to the caller's own JWT, just to identify who they are.
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization") ?? "" },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Not authenticated" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    // Identify the caller from their JWT (forwarded automatically by
+    // supabase-js), same pattern as create-checkout-session.
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Not signed in.' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Service-role client to read the profile row directly (bypasses RLS).
-    // Remember the "explicit GRANT per role" lesson from earlier in this
-    // project — service_role needs its own grant on `profiles`, it's not
-    // automatic just because `authenticated` has one.
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
     );
 
-    // ASSUMPTION: your `profiles` table has a `stripe_customer_id` column.
-    // Adjust the column name here if yours differs — I inferred this from
-    // the checkout flow needing to store a customer ID somewhere, but I
-    // don't have your actual schema to confirm the exact name.
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", user.id)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Not signed in.' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { returnUrl } = await req.json().catch(() => ({ returnUrl: null }));
+    const fallbackUrl = Deno.env.get('APP_URL') ?? 'https://example.com';
+    const baseUrl = returnUrl || fallbackUrl;
+
+    // Service-role lookup — same reasoning as create-checkout-session:
+    // we need the stored Stripe customer id, not a user-scoped read.
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', user.id)
       .single();
 
-    if (profileError || !profile?.stripe_customer_id) {
+    if (!profile?.stripe_customer_id) {
       return new Response(
-        JSON.stringify({ error: "No Stripe customer found for this user" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: 'No Stripe customer found for this account yet.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Optional: let the frontend tell us where to send the user back to.
-    // Falls back to your production URL if not provided.
-    const body = await req.json().catch(() => ({}));
-    const returnUrl = body?.return_url || "https://apps.sires4u.com/";
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,
-      return_url: returnUrl,
+      return_url: baseUrl,
     });
 
     return new Response(JSON.stringify({ url: portalSession.url }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error("create-portal-session error:", err);
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    console.error('create-portal-session error:', err);
+    return new Response(JSON.stringify({ error: err.message ?? 'Unknown error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

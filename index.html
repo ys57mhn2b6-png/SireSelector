@@ -962,7 +962,9 @@ function renderAccountBar(){
     el.innerHTML = `
       <span class="badge-premium">Premium</span>
       <span class="acct-email">${email}</span>
+      <button class="btn-link" id="manageBillingBtn">Manage billing</button>
       <button class="btn-link" id="signOutBtn">Sign out</button>`;
+    document.getElementById('manageBillingBtn').onclick = openBillingPortal;
   } else {
     el.innerHTML = `
       <span class="acct-email">${email}</span>
@@ -1137,6 +1139,42 @@ async function startCheckout(){
     console.error('startCheckout threw:', err);
     alert('Could not start checkout: ' + (err?.message || 'Please try again.'));
     if(btn){ btn.disabled = false; btn.textContent = 'Upgrade'; }
+  }
+}
+
+// ---------- Stripe billing portal ----------
+// Calls a Supabase Edge Function (see create-portal-session/index.ts) which
+// creates a Stripe Billing Portal session for the signed-in user and returns its URL.
+async function openBillingPortal(){
+  if(!authSession) return;
+  const btn = document.getElementById('manageBillingBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Loading…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('create-portal-session', {
+      body: { returnUrl: window.location.href }
+    });
+    if(error || !data?.url){
+      // Same unwrapping as startCheckout: supabase-js hides our function's
+      // actual error detail inside error.context on non-2xx responses.
+      let detail = error?.message || 'unknown error';
+      if(error?.context){
+        try {
+          const body = await error.context.json();
+          if(body?.error) detail = body.error;
+        } catch(_){
+          try { detail = await error.context.text(); } catch(__){}
+        }
+      }
+      console.error('create-portal-session failed:', detail, error);
+      alert('Could not open billing portal: ' + detail);
+      if(btn){ btn.disabled = false; btn.textContent = 'Manage billing'; }
+      return;
+    }
+    window.location.href = data.url;
+  } catch(err){
+    console.error('openBillingPortal threw:', err);
+    alert('Could not open billing portal: ' + (err?.message || 'Please try again.'));
+    if(btn){ btn.disabled = false; btn.textContent = 'Manage billing'; }
   }
 }
 
