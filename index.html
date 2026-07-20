@@ -492,6 +492,9 @@ const AVG = {
   ruh:0.7447, ruw:0.9951,
   // msprating: CDN-style rating trait like hhrating/cw/bd — averaged normally.
   msprating:100.7810,
+  // bcs: Body Condition Score -CDN rating, same 105-bull reference
+  // population and averaged normally, same style as hhrating/msprating.
+  bcs:97.3714,
   // trw: standard type trait, averaged normally.
   trw:0.6243,
   // 8 new linear type traits (matching the standard US linear type list),
@@ -536,6 +539,9 @@ const MAD = {
   ftp:0.6205, rtp:0.7818, ucl:0.7590, rls:0.7862,
   // msprating: CDN-style rating trait like hhrating/cw/bd — standard MAD from AVG.
   msprating:2.6843,
+  // bcs: Body Condition Score -CDN rating, standard MAD from AVG, same
+  // 105-bull reference population as every other trait.
+  bcs:3.7273,
   // trw: standard type trait, standard MAD from AVG.
   trw:0.7143,
   // 8 new linear type traits, standard MAD from AVG. (rls moved above —
@@ -591,6 +597,10 @@ const SIGN = {
   fat:1, pro:1, milk:-1, dpr:1, sce:-1, liv:1, mas:1, pl:1, scs:-1,
   rpa:1, tlg:1, cw:1, bd:1, sta:-1, hhrating:1, rfi:-1, a2:1,
   ruh:1, ruw:1, msprating:1, trw:1,
+  // bcs: assumed higher = better, matching hhrating/msprating's convention
+  // (same rating scale, same ~100 average) — not independently confirmed
+  // against breed-association documentation, verify before trusting this direction.
+  bcs:1,
   // milk:-1 above is just the "unchecked" fallback value for the sign
   // toggle (see SIGN_TOGGLEABLE/positiveDirection) — whichever state the
   // checkbox is in actually decides the sign used at scoring time.
@@ -683,6 +693,8 @@ const TRAITS = [
   {key:'hhrating', label:'Hoof Health -CDN (HH)', group:'Health and Efficiency', subgroup:'Health', defPct:6.89, source:'core',
    desc:''},
   {key:'msprating', label:'Milking Speed -CDN (MSP)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'bcs', label:'Body Condition Score -CDN (BCS)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
    desc:''},
 
   {key:'sta', label:'Stature (STA)', group:'Type & Conformation', defPct:4.16, source:'core',
@@ -847,14 +859,14 @@ function groupBreakdown(pcts){
 // Rear Legs-Side, Udder Depth, Teat Length, Chest Width, Body Depth at 5
 // each) but with Rump Angle left at 0. Still sums to exactly 35/35/30.
 const PRESETS = {
-  balanced:  {label:'Balanced', pcts: {fat:18,pro:11,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
+  balanced:  {label:'Balanced', pcts: {fat:18,pro:11,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { milk:false } },
   // Production focus: Fat/Protein at 30/25, Milk at 0; Health and Efficiency
   // uses the same flat RDFL weights (DPR, SCE, LIV, MAS, RFI, Hoof Health,
   // Milking Speed at 5 each); Type & Conformation only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
-  production:{label:'Production focus', pcts: {fat:30,pro:25,milk:0,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
+  production:{label:'Production focus', pcts: {fat:30,pro:25,milk:0,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { milk:true } },
   // Health and efficiency focus: Fat/Protein/Milk at 10/8/7. Health and
@@ -863,7 +875,7 @@ const PRESETS = {
   // Conformation uses the same weighting as Production focus: Stature and
   // Feet & Legs Score at 5% each, everything else at 0. A2A2 filter is on
   // for this preset (along with RDFL) — every other preset leaves it off.
-  health:    {label:'Health and efficiency focus', pcts: {fat:10,pro:8,milk:7,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
+  health:    {label:'Health and efficiency focus', pcts: {fat:10,pro:8,milk:7,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { milk:true } },
   // Type & conformation focus: rpa/ucl/tlg/cw/bd/sta/hhrating/ruh/ruw/ftp/rtp
@@ -879,7 +891,7 @@ const PRESETS = {
   // Still sums to exactly 100 (20/20/60). This preset also switches Stature
   // and Rump Angle to symmetric/deviation scoring (toggle boxes unchecked),
   // rather than the reward-short/reward-sloped one-directional scoring.
-  type:      {label:'Type & conformation focus', pcts: {fat:10.00,pro:10.00,milk:0,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
+  type:      {label:'Type & conformation focus', pcts: {fat:10.00,pro:10.00,milk:0,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false, milk:true } },
 
@@ -898,7 +910,7 @@ const PRESETS = {
   // Depth, Teat Length, Chest Width, and Body Depth at 5 each. Beta Casein
   // (A2) carries no weighting — the a2Only filter below still restricts
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
-  rdfl:      {label:'RDFL', pcts: {fat:15,pro:9,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
+  rdfl:      {label:'RDFL', pcts: {fat:15,pro:9,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true, milk:false } },
 };
@@ -1436,7 +1448,7 @@ function fmt(v, d=1){
 // table already uses per-column.
 const TRAIT_DECIMALS = {
   fat:0, pro:0, milk:0, dpr:1, sce:1, liv:1, mas:1, pl:1, scs:2,
-  rpa:2, ucl:2, tlg:2, cw:0, bd:0, sta:2, hhrating:0, msprating:0, rfi:0,
+  rpa:2, ucl:2, tlg:2, cw:0, bd:0, sta:2, hhrating:0, msprating:0, bcs:0, rfi:0,
   ruh:2, ruw:2, ftp:2, rtp:2,
   met:1, rpl:1, efc:1, hlv:1, fs:0, dce:1, ssb:1, dsb:1, hcr:1, ccr:1, trw:2,
   str:2, dfm:2, fta:2, rls:2, fua:2, udp:2, rlr:2, fls:2,
@@ -1852,7 +1864,7 @@ function exportShortlist(){
   const weights = pctToWeights(pcts);
   const allKnownBulls = ADDITIONAL_BULLS ? BULLS.concat(ADDITIONAL_BULLS) : BULLS;
   const items = allKnownBulls.filter(b => shortlist.has(b.naab || b.name)).map(b=>({...b, score:computeScore(b, weights)}));
-  const cols = ['name','naab','reg','a2','rel','nm','fat','pro','milk','dpr','sce','liv','mas','pl','scs','rpa','ucl','tlg','cw','bd','sta','hhrating','msprating','rfi','ruh','ruw','ftp','rtp','score'];
+  const cols = ['name','naab','reg','a2','rel','nm','fat','pro','milk','dpr','sce','liv','mas','pl','scs','rpa','ucl','tlg','cw','bd','sta','hhrating','msprating','bcs','rfi','ruh','ruw','ftp','rtp','score'];
   const rows = [cols.join(',')].concat(items.map(b => cols.map(c => {
     let v = c==='score' ? b.score.toFixed(1) : b[c];
     if(v===undefined||v===null) v='';
@@ -1892,6 +1904,7 @@ const TOGGLEABLE_COLUMNS = [
   {key:'scs', label:'SCS', numeric:true, decimals:2},
   {key:'hhrating', label:'HH', numeric:true, decimals:0},
   {key:'msprating', label:'MSP', numeric:true, decimals:0},
+  {key:'bcs', label:'BCS', numeric:true, decimals:0},
   {key:'rfi', label:'RFI', numeric:true, decimals:0},
   // Type & Conformation columns below follow the same order as the Type
   // chart on the bull detail page and the Type & Conformation sliders in
@@ -2201,14 +2214,14 @@ function renderBullDetail(b){
   // Type & Conformation splits into two displays: the four -CDN rating
   // traits (chest width, body depth, hoof health, milking speed) as plain
   // stat blocks like every other group, and the remaining linear type
-  // traits as a deviation bar chart. Hoof Health and Milking Speed stay
-  // grouped under Health and Efficiency for sidebar weighting/sliders
-  // (unchanged), but on this detail page they display here in CDN Traits
-  // alongside Chest Width and Body Depth, since all four are CDN-style
-  // rating traits.
+  // traits as a deviation bar chart. Hoof Health, Milking Speed, and Body
+  // Condition Score stay grouped under Health and Efficiency for sidebar
+  // weighting/sliders (unchanged), but on this detail page they display
+  // here in CDN Traits alongside Chest Width and Body Depth, since all are
+  // CDN-style rating traits.
   const tcTraits = TRAITS.filter(t => t.group === 'Type & Conformation');
   const cdnTraits = tcTraits.filter(t => t.label.includes('-CDN'))
-    .concat(TRAITS.filter(t => t.key === 'hhrating' || t.key === 'msprating'));
+    .concat(TRAITS.filter(t => t.key === 'hhrating' || t.key === 'msprating' || t.key === 'bcs'));
   const chartTraits = tcTraits.filter(t => !t.label.includes('-CDN'));
 
   const statPanel = (title, traits, extraTraits=[], compact=true) => `
@@ -2248,7 +2261,7 @@ function renderBullDetail(b){
       }</span>
     </div>`;
   const healthEffTraits = [
-    ...TRAITS.filter(t=>t.group==='Health and Efficiency' && t.key!=='hhrating' && t.key!=='msprating'),
+    ...TRAITS.filter(t=>t.group==='Health and Efficiency' && t.key!=='hhrating' && t.key!=='msprating' && t.key!=='bcs'),
     ...EXTRA_TRAITS.filter(t=>t.group==='Health and Efficiency'),
   ];
   const healthEffPanel = `
