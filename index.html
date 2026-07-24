@@ -1757,7 +1757,7 @@ function renderSidebar(){
         const priceInputsHtml = `
         <div class="slider-row economic-value-inputs">
           <div class="top"><span class="name">$ Prices for Economic Value</span></div>
-          <div class="desc">Used to combine Milk, Fat, and Protein into the Production (Economic Value) slider below. Defaults to NM$ (Net Merit $) economic values — edit these to match your own milk contract/payment structure, or region's pricing, and leave at 0 for any component you want excluded. Milk can be negative if your payment structure penalizes volume (e.g. component-only pricing).</div>
+          <div class="desc">Used to combine Milk, Fat, and Protein into the Production (Economic Value) slider below. Defaults to NM$ (Net Merit $) economic values. Edit these to match your own milk payment structure, or region's pricing. Leave at 0 to exclude a component. Set milk to negative if that is penalised.</div>
           <button type="button" id="econUnitToggle" class="btn-link">Switch to $/${economicPriceUnit === 'kg' ? 'lb' : 'kg'}</button>
           <div class="econ-price-row">
             <label>$/${unitLabel} Fat<input type="number" step="any" id="econPriceFat" value="${toDisplay(economicValues.fatPrice)}"></label>
@@ -1770,11 +1770,14 @@ function renderSidebar(){
         // slider — renderExtraRow gives filter-only, same as any
         // non-scored trait. econprod uses renderScoredRow (it's the one
         // that's actually weighted) but with noRange:true, so it doesn't
-        // also get a redundant/confusing range filter of its own.
-        const scoredRows = TRAITS.filter(t=>t.group===g && !['fat','pro','milk'].includes(t.key)).map(renderScoredRow).join('');
+        // also get a redundant/confusing range filter of its own. Order:
+        // price inputs, econprod slider, then the fat/pro/milk range
+        // filters above fat%/pro% (and anything else in the group).
+        const econScoredRow = TRAITS.filter(t=>t.key==='econprod').map(renderScoredRow).join('');
         const fatProMilkFilterRows = TRAITS.filter(t=>['fat','pro','milk'].includes(t.key) && t.group===g).map(renderExtraRow).join('');
+        const remainingScoredRows = TRAITS.filter(t=>t.group===g && !['fat','pro','milk','econprod'].includes(t.key)).map(renderScoredRow).join('');
         const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
-        bodyHtml = priceInputsHtml + scoredRows + fatProMilkFilterRows + extraRows;
+        bodyHtml = priceInputsHtml + econScoredRow + fatProMilkFilterRows + remainingScoredRows + extraRows;
       } else {
         const scoredRows = TRAITS.filter(t=>t.group===g).map(renderScoredRow).join('');
         const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
