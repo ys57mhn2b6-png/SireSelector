@@ -685,21 +685,21 @@ const TRAITS = [
   {key:'propct', label:'Pro % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
    desc:''},
 
-  {key:'sta', label:'Stature (STA)', group:'Body Weight and Efficiency', defPct:4.16, source:'core',
+  {key:'sta', label:'Stature (STA)', group:'Body and Efficiency', defPct:4.16, source:'core',
    toggleLabel:'Reward short, penalize tall',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'str', label:'Strength (STR)', group:'Body Weight and Efficiency', defPct:0, source:'added',
+  {key:'str', label:'Strength (STR)', group:'Body and Efficiency', defPct:0, source:'added',
    toggleLabel:'Penalize strong, reward frail',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'cw', label:'Chest Width -CDN (CW)', group:'Body Weight and Efficiency', defPct:7.18, source:'core',
+  {key:'cw', label:'Chest Width -CDN (CW)', group:'Body and Efficiency', defPct:7.18, source:'core',
    desc:''},
-  {key:'bd', label:'Body Depth -CDN (BD)', group:'Body Weight and Efficiency', defPct:5.66, source:'core',
+  {key:'bd', label:'Body Depth -CDN (BD)', group:'Body and Efficiency', defPct:5.66, source:'core',
    desc:''},
-  {key:'dfm', label:'Dairy Form (DFM)', group:'Body Weight and Efficiency', defPct:0, source:'added',
+  {key:'dfm', label:'Dairy Form (DFM)', group:'Body and Efficiency', defPct:0, source:'added',
    desc:''},
-  {key:'rfi', label:'Residual Feed Intake (RFI)', group:'Body Weight and Efficiency', defPct:6.08, source:'core',
+  {key:'rfi', label:'Residual Feed Intake (RFI)', group:'Body and Efficiency', defPct:6.08, source:'core',
    desc:''},
-  {key:'fs', label:'Feed Saved (FS)', group:'Body Weight and Efficiency', defPct:0, source:'added',
+  {key:'fs', label:'Feed Saved (FS)', group:'Body and Efficiency', defPct:0, source:'added',
    desc:'Combines body size and RFI.'},
 
   {key:'dpr', label:'Daughter Pregnancy Rate (DPR)', group:'Health and Fertility', subgroup:'Fertility', defPct:5.53, source:'core',
@@ -750,10 +750,10 @@ const TRAITS = [
   {key:'bcs', label:'Body Condition Score -CDN (BCS)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
    desc:''},
 
-  {key:'rpa', label:'Rump Angle (RPA)', group:'Udder and Feet', defPct:3.96, source:'core',
+  {key:'rpa', label:'Rump Angle (RPA)', group:'Body and Efficiency', defPct:3.96, source:'core',
    toggleLabel:'Reward sloped, penalize high pins',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'trw', label:'Thurl Width (TRW)', group:'Body Weight and Efficiency', defPct:0, source:'added',
+  {key:'trw', label:'Thurl Width (TRW)', group:'Body and Efficiency', defPct:0, source:'added',
    desc:''},
   {key:'rls', label:'Rear Legs-Side (RLS)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
    desc:'0 is optimum and any deviation is penalized.'},
@@ -909,7 +909,7 @@ const PRESETS = {
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
     economics: { fatPrice:5.01, proPrice:0, milkPrice:0.122, unit:'lb' } },
-  // Health + US CM Pricing: Body Weight and Efficiency uses the same
+  // Health + US CM Pricing: Body and Efficiency uses the same
   // Stature/Strength/Dairy Form/RFI weights as Production + US FM Pricing
   // (2/6/4/8 = 20% total), Production itself at 30%, and the remaining 50%
   // spread across 18 explicit Health and Fertility trait percentages
@@ -1585,7 +1585,7 @@ function renderSidebar(){
             <button class="preset-btn ${usingSavedPreferences?'active':''}" id="myPreferencesBtn">⭐ My preferences</button>
             <div class="preset-breakdown-line">
               PROD ${(bd['Production']??0).toFixed(0)}%&middot;
-              EFF ${(bd['Body Weight and Efficiency']??0).toFixed(0)}%&middot;
+              BODY ${(bd['Body and Efficiency']??0).toFixed(0)}%&middot;
               HTH ${(bd['Health and Fertility']??0).toFixed(0)}%&middot;
               TYPE ${(bd['Udder and Feet']??0).toFixed(0)}%
             </div>
@@ -1600,7 +1600,7 @@ function renderSidebar(){
             <button class="preset-btn ${active?'active':''} ${locked?'locked':''}" data-preset="${k}" ${locked?'data-locked="1"':''}>${p.label}</button>
             <div class="preset-breakdown-line">
               PROD ${(bd['Production']??0).toFixed(0)}%&middot;
-              EFF ${(bd['Body Weight and Efficiency']??0).toFixed(0)}%&middot;
+              BODY ${(bd['Body and Efficiency']??0).toFixed(0)}%&middot;
               HTH ${(bd['Health and Fertility']??0).toFixed(0)}%&middot;
               TYPE ${(bd['Udder and Feet']??0).toFixed(0)}%
             </div>
@@ -2420,7 +2420,7 @@ function renderBullDetail(b){
   // Udder and Feet splits into two displays: the linear type traits as a
   // deviation bar chart, and a separate "CDN Traits" panel gathering every
   // CDN-style rating trait regardless of which sidebar group it now lives
-  // in — Chest Width and Body Depth moved to Body Weight and Efficiency,
+  // in — Chest Width and Body Depth moved to Body and Efficiency,
   // Hoof Health/Milking Speed/BCS stay under Health and Fertility for
   // sidebar weighting/sliders, but all five still display together here.
   // Matched by explicit key, not by checking each label for "-CDN" — hh/msp/bcs's
@@ -2429,7 +2429,7 @@ function renderBullDetail(b){
   const tcTraits = TRAITS.filter(t => t.group === 'Udder and Feet');
   const cdnTraits = TRAITS.filter(t => CDN_TRAIT_KEYS.includes(t.key));
   const chartTraits = tcTraits.filter(t => !t.label.includes('-CDN'))
-    .concat(TRAITS.filter(t => ['sta','str','dfm','trw'].includes(t.key)));
+    .concat(TRAITS.filter(t => ['sta','str','dfm','trw','rpa'].includes(t.key)));
 
   const statPanel = (title, traits, extraTraits=[], compact=true, stripCDNLabel=false) => `
     <div class="panel">
