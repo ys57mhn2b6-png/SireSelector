@@ -577,8 +577,8 @@ const K = 201.7223;
 // sta, rpa, udp, and tlg are toggleable today; ftp/rtp/ucl/rls are
 // permanently deviation traits and already use this style via their
 // entries in MAD above (not here).
-const DEV_MAD = { sta:0.8536, rpa:0.9176, udp:0.8210, tlg:0.5377 };
-const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true };
+const DEV_MAD = { sta:0.8536, rpa:0.9176, udp:0.8210, tlg:0.5377, str:0.8057 };
+const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true };
 
 // Default is the original one-directional setup for sta, rpa, udp, and tlg
 // (matching RDFL, the app's default preset): reward short/penalize tall for
@@ -588,7 +588,7 @@ const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true };
 // symmetric/deviation scoring instead (0 = optimum, penalized either
 // direction, same shape as ftp/rtp) — see each trait's SIGN entry below
 // for the sign convention this depends on.
-let useOriginalDirection = { sta:true, rpa:true, udp:true, tlg:true };
+let useOriginalDirection = { sta:true, rpa:true, udp:true, tlg:true, str:false };
 
 // Milk is the one trait whose desirable DIRECTION (not just importance)
 // genuinely depends on the user's own situation — whether more milk helps
@@ -626,7 +626,11 @@ const SIGN = {
   // model that nuance for these traits (only sta/rpa/udp/tlg/ftp/rtp/ucl/rls
   // get the zero-optimum deviation treatment), so treat their weighting as
   // a rough linear proxy, not a precise curvilinear-optimum score.
-  str:1, dfm:1, fta:1, fua:1, udp:1, rlr:1, fls:1,
+  dfm:1, fta:1, fua:1, udp:1, rlr:1, fls:1,
+  // str: one-directional mode (checkbox checked) means "penalize strong,
+  // reward frail" per its toggleLabel, so SIGN is -1, not the usual +1
+  // "higher is better" convention most other linear traits use here.
+  str:-1,
   // Newly-scored traits. met/rpl/dab/ket/mfv (health-event resistance),
   // efc/hlv/hcr/ccr (fertility/livability), fs (feed saved), and
   // fatpct/propct (component %) are all higher-is-better. dce/ssb/dsb
@@ -665,98 +669,100 @@ const TRAITS = [
   {key:'propct', label:'Pro % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
    desc:''},
 
-  {key:'dpr', label:'Daughter Pregnancy Rate (DPR)', group:'Health and Efficiency', subgroup:'Fertility', defPct:5.53, source:'core',
-   desc:''},
-  {key:'gl', label:'Gestation Length (GL)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
-   desc:''},
-  {key:'sce', label:'Sire Calving Ease (SCE)', group:'Health and Efficiency', subgroup:'Fertility', defPct:2.65, source:'core',
-   desc:''},
-  {key:'liv', label:'Cow Livability (LIV)', group:'Health and Efficiency', subgroup:'Livability', defPct:4.66, source:'core',
-   desc:''},
-  {key:'mas', label:'Mastitis Resistance (MAS)', group:'Health and Efficiency', subgroup:'Health', defPct:6.36, source:'core',
-   desc:''},
-  {key:'pl', label:'Productive Life (PL)', group:'Health and Efficiency', subgroup:'Livability', defPct:0, source:'added',
-   desc:''},
-  {key:'scs', label:'Somatic Cell Score (SCS)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
-   desc:''},
-  {key:'rfi', label:'Residual Feed Intake (RFI)', group:'Health and Efficiency', subgroup:'Efficiency', defPct:6.08, source:'core',
-   desc:''},
-  {key:'fs', label:'Feed Saved (FS)', group:'Health and Efficiency', subgroup:'Efficiency', defPct:0, source:'added',
-   desc:'Combines body size and RFI.'},
-
-  {key:'efc', label:'Early First Calving (EFC)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
-   desc:''},
-  {key:'dce', label:'Daughter Calving Ease (DCE)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
-   desc:''},
-  {key:'ssb', label:'Sire Stillbirth (SSB)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
-   desc:''},
-  {key:'dsb', label:'Daughter Stillbirth (DSB)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
-   desc:''},
-  {key:'hcr', label:'Heifer Conception Rate (HCR)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
-   desc:''},
-  {key:'ccr', label:'Cow Conception Rate (CCR)', group:'Health and Efficiency', subgroup:'Fertility', defPct:0, source:'added',
-   desc:''},
-
-  {key:'hlv', label:'Heifer Livability (HLV)', group:'Health and Efficiency', subgroup:'Livability', defPct:0, source:'added',
-   desc:''},
-
-  {key:'met', label:'Metritis Resistance (MET)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
-   desc:''},
-  {key:'rpl', label:'Retained Placenta Resistance (RPL)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
-   desc:''},
-  {key:'dab', label:'Displaced Abomasum (DA)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
-   desc:''},
-  {key:'ket', label:'Ketosis (KETO)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
-   desc:''},
-  {key:'mfv', label:'Milk Fever (MFV)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
-   desc:''},
-  {key:'hhrating', label:'Hoof Health -CDN (HH)', group:'Health and Efficiency', subgroup:'Health', defPct:6.89, source:'core',
-   desc:''},
-  {key:'msprating', label:'Milking Speed -CDN (MSP)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
-   desc:''},
-  {key:'bcs', label:'Body Condition Score -CDN (BCS)', group:'Health and Efficiency', subgroup:'Health', defPct:0, source:'added',
-   desc:''},
-
-  {key:'sta', label:'Stature (STA)', group:'Type & Conformation', defPct:4.16, source:'core',
+  {key:'sta', label:'Stature (STA)', group:'Body Weight and Efficiency', defPct:4.16, source:'core',
    toggleLabel:'Reward short, penalize tall',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'str', label:'Strength (STR)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'str', label:'Strength (STR)', group:'Body Weight and Efficiency', defPct:0, source:'added',
+   toggleLabel:'Penalize strong, reward frail',
+   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'cw', label:'Chest Width -CDN (CW)', group:'Body Weight and Efficiency', defPct:7.18, source:'core',
    desc:''},
-  {key:'cw', label:'Chest Width -CDN (CW)', group:'Type & Conformation', defPct:7.18, source:'core',
+  {key:'bd', label:'Body Depth -CDN (BD)', group:'Body Weight and Efficiency', defPct:5.66, source:'core',
    desc:''},
-  {key:'bd', label:'Body Depth -CDN (BD)', group:'Type & Conformation', defPct:5.66, source:'core',
+  {key:'dfm', label:'Dairy Form (DFM)', group:'Body Weight and Efficiency', defPct:0, source:'added',
    desc:''},
-  {key:'dfm', label:'Dairy Form (DFM)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'rfi', label:'Residual Feed Intake (RFI)', group:'Body Weight and Efficiency', defPct:6.08, source:'core',
    desc:''},
-  {key:'rpa', label:'Rump Angle (RPA)', group:'Type & Conformation', defPct:3.96, source:'core',
+  {key:'fs', label:'Feed Saved (FS)', group:'Body Weight and Efficiency', defPct:0, source:'added',
+   desc:'Combines body size and RFI.'},
+
+  {key:'dpr', label:'Daughter Pregnancy Rate (DPR)', group:'Health and Fertility', subgroup:'Fertility', defPct:5.53, source:'core',
+   desc:''},
+  {key:'gl', label:'Gestation Length (GL)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'sce', label:'Sire Calving Ease (SCE)', group:'Health and Fertility', subgroup:'Fertility', defPct:2.65, source:'core',
+   desc:''},
+  {key:'liv', label:'Cow Livability (LIV)', group:'Health and Fertility', subgroup:'Livability', defPct:4.66, source:'core',
+   desc:''},
+  {key:'mas', label:'Mastitis Resistance (MAS)', group:'Health and Fertility', subgroup:'Health', defPct:6.36, source:'core',
+   desc:''},
+  {key:'pl', label:'Productive Life (PL)', group:'Health and Fertility', subgroup:'Livability', defPct:0, source:'added',
+   desc:''},
+  {key:'scs', label:'Somatic Cell Score (SCS)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+
+  {key:'efc', label:'Early First Calving (EFC)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'dce', label:'Daughter Calving Ease (DCE)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'ssb', label:'Sire Stillbirth (SSB)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'dsb', label:'Daughter Stillbirth (DSB)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'hcr', label:'Heifer Conception Rate (HCR)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+  {key:'ccr', label:'Cow Conception Rate (CCR)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
+
+  {key:'hlv', label:'Heifer Livability (HLV)', group:'Health and Fertility', subgroup:'Livability', defPct:0, source:'added',
+   desc:''},
+
+  {key:'met', label:'Metritis Resistance (MET)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'rpl', label:'Retained Placenta Resistance (RPL)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'dab', label:'Displaced Abomasum (DA)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'ket', label:'Ketosis (KETO)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'mfv', label:'Milk Fever (MFV)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'hhrating', label:'Hoof Health -CDN (HH)', group:'Health and Fertility', subgroup:'Health', defPct:6.89, source:'core',
+   desc:''},
+  {key:'msprating', label:'Milking Speed -CDN (MSP)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'bcs', label:'Body Condition Score -CDN (BCS)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+
+  {key:'rpa', label:'Rump Angle (RPA)', group:'Udder and Feet', defPct:3.96, source:'core',
    toggleLabel:'Reward sloped, penalize high pins',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'trw', label:'Thurl Width (TRW)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'trw', label:'Thurl Width (TRW)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
-  {key:'rls', label:'Rear Legs-Side (RLS)', group:'Type & Conformation', defPct:0, source:'added', deviation:true,
+  {key:'rls', label:'Rear Legs-Side (RLS)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
    desc:'0 is optimum and any deviation is penalized.'},
-  {key:'rlr', label:'Rear Legs-Rear (RLR)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'rlr', label:'Rear Legs-Rear (RLR)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
-  {key:'fta', label:'Foot Angle (FTA)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'fta', label:'Foot Angle (FTA)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
-  {key:'fls', label:'Feet & Legs Score (FLS)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'fls', label:'Feet & Legs Score (FLS)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
-  {key:'fua', label:'Fore Udder Attachment (FUA)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'fua', label:'Fore Udder Attachment (FUA)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
-  {key:'ruh', label:'Rear Udder Height (RUH)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'ruh', label:'Rear Udder Height (RUH)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
-  {key:'ruw', label:'Rear Udder Width (RUW)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'ruw', label:'Rear Udder Width (RUW)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
-  {key:'ucl', label:'Udder Cleft (UCL)', group:'Type & Conformation', defPct:5.44, source:'core', deviation:true,
+  {key:'ucl', label:'Udder Cleft (UCL)', group:'Udder and Feet', defPct:5.44, source:'core', deviation:true,
    desc:'Any deviation from zero reduce score.'},
-  {key:'udp', label:'Udder Depth (UDP)', group:'Type & Conformation', defPct:0, source:'added',
+  {key:'udp', label:'Udder Depth (UDP)', group:'Udder and Feet', defPct:0, source:'added',
    toggleLabel:'Reward shallow, penalize deep',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'ftp', label:'Front Teat Placement (FTP)', group:'Type & Conformation', defPct:0, source:'added', deviation:true,
+  {key:'ftp', label:'Front Teat Placement (FTP)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
    desc:'Any deviation from 0 reduces score.'},
-  {key:'rtp', label:'Rear Teat Placement (RTP)', group:'Type & Conformation', defPct:0, source:'added', deviation:true,
+  {key:'rtp', label:'Rear Teat Placement (RTP)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
    desc:'Any deviation from 0 reduces score.'},
-  {key:'tlg', label:'Teat Length (TLG)', group:'Type & Conformation', defPct:3.40, source:'core',
+  {key:'tlg', label:'Teat Length (TLG)', group:'Udder and Feet', defPct:3.40, source:'core',
    toggleLabel:'Reward long, penalize short',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
 
@@ -850,7 +856,7 @@ function normalizePctsToExactly100(pctsObj){
 }
 
 // % of a given pcts object's total allocated to each trait group (Production,
-// Health and Efficiency, Type & Conformation, Genetics) — same "share of
+// Health and Fertility, Udder and Feet, Genetics) — same "share of
 // whatever they add up to" logic as pctToWeights, just grouped instead of
 // per-trait. Used to show what each preset actually emphasizes at a glance.
 function groupBreakdown(pcts){
@@ -867,54 +873,50 @@ function groupBreakdown(pcts){
 
 // Each preset's per-trait percentages are hand-set (not derived from defPct)
 // so the group totals hit exact targets:
-//   balanced: 35% Production / 35% Health and Efficiency / 30% Type & Conformation
+//   balanced: 35% Production / 35% Health and Fertility / 30% Udder and Feet
 //   production: 60 / 20 / 20   health: 20 / 60 / 20   type: 20 / 20 / 60
 // Within each group, traits keep the same relative proportions as their
 // original hand-tuned defaults (or the prior preset), just rescaled so the
 // group hits its target. PL, SCS, and A2A2 are 0 in every preset — all
 // opt-in only.
-// Balanced: Fat/Protein/Milk at 18/11/6; Health and Efficiency uses the same
+// Balanced: Fat/Protein/Milk at 18/11/6; Health and Fertility uses the same
 // flat per-trait weights as RDFL (DPR, SCE, LIV, MAS, RFI, Hoof Health,
-// Milking Speed at 5 each); Type & Conformation also matches RDFL (Stature,
+// Milking Speed at 5 each); Udder and Feet also matches RDFL (Stature,
 // Rear Legs-Side, Udder Depth, Teat Length, Chest Width, Body Depth at 5
 // each) but with Rump Angle left at 0. Still sums to exactly 35/35/30.
 const PRESETS = {
-  balanced:  {label:'Balanced', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
-    filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { rpa:true, sta:true },
-    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
-  // Production focus: Fat/Protein at 30/25, Milk at 0; Health and Efficiency
+  // Production focus: Fat/Protein at 30/25, Milk at 0; Health and Fertility
   // uses the same flat RDFL weights (DPR, SCE, LIV, MAS, RFI, Hoof Health,
-  // Milking Speed at 5 each); Type & Conformation only weights Stature and
+  // Milking Speed at 5 each); Udder and Feet only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
-  production:{label:'Production focus', pcts: {fat:0,pro:0,milk:0,econprod:55,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
+  production:{label:'Production + US FM Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true },
-    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
+    economics: { fatPrice:5.01, proPrice:0, milkPrice:0.122, unit:'lb' } },
   // Health and efficiency focus: Fat/Protein/Milk at 10/8/7. Health and
   // Efficiency weights 13 traits flat at 5% each — LIV, HLV, DPR, SCE, EFC,
   // DCE, SSB, DSB, MAS, SCS, Hoof Health, Milking Speed, RFI. Type &
   // Conformation uses the same weighting as Production focus: Stature and
   // Feet & Legs Score at 5% each, everything else at 0. A2A2 filter is on
   // for this preset (along with RDFL) — every other preset leaves it off.
-  health:    {label:'Health and efficiency focus', pcts: {fat:0,pro:0,milk:0,econprod:25,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
+  health:    {label:'Health + US CM Pricing', pcts: {fat:0,pro:0,milk:0,econprod:25,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true },
-    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
+    economics: { fatPrice:5.01, proPrice:4.73, milkPrice:-0.02, unit:'lb' } },
   // Type & conformation focus: rpa/ucl/tlg/cw/bd/sta/hhrating/ruh/ruw/ftp/rtp
   // rescaled by 57/60 to make room for trw (3.00) inside the group's 60%
-  // target, so Production 20 / Health and Efficiency 20 / Type & Conformation
+  // target, so Production 20 / Health and Fertility 20 / Udder and Feet
   // 60 still holds exactly. msprating stays at 0 here (only weighted in
-  // Health and Efficiency).
-  // Type & conformation focus: Health and Efficiency now only weights LIV,
-  // HLV, MAS, and Hoof Health at 5% each (20% total). Type & Conformation
+  // Health and Fertility).
+  // Type & conformation focus: Health and Fertility now only weights LIV,
+  // HLV, MAS, and Hoof Health at 5% each (20% total). Udder and Feet
   // weights 12 traits flat at 5% each — STA, STR, DFM, TRW, FLS, FUA, RUH,
   // RUW, UDP, FTP, RTP, TLG — for 60% total; RPA and UCL are no longer
   // weighted here. Fat/Protein/Milk (20% total) are unchanged from before.
   // Still sums to exactly 100 (20/20/60). This preset also switches Stature
   // and Rump Angle to symmetric/deviation scoring (toggle boxes unchecked),
   // rather than the reward-short/reward-sloped one-directional scoring.
-  type:      {label:'Type & conformation focus', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
+  type:      {label:'Type + US NM pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
@@ -934,7 +936,7 @@ const PRESETS = {
   // Depth, Teat Length, Chest Width, and Body Depth at 5 each. Beta Casein
   // (A2) carries no weighting — the a2Only filter below still restricts
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
-  rdfl:      {label:'RDFL', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
+  rdfl:      {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true },
     // RDFL-specific pricing, supplied as $6.38/kg fat, $6.38/kg protein,
@@ -1008,10 +1010,10 @@ let pcts = {...PRESETS.production.pcts};
 // dedicated slider, so "Clear all filters" and the active-filter count/list
 // both cover it automatically instead of needing special-cased handling.
 let filters = {a2Only:false, excludeHaplotype:true, excludeClones:true, ranges:{}, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false}, genotypeFilters:{}, searchText:'', polledOnly:false, redOnly:false};
-// Health and Efficiency and Type & Conformation have the most sliders/filters
+// Health and Fertility and Udder and Feet have the most sliders/filters
 // of any groups, so their bodies start collapsed behind an expander to keep
 // the sidebar manageable on first load; Production stays always expanded.
-let expandedGroups = { 'Health and Efficiency': false, 'Type & Conformation': false };
+let expandedGroups = { 'Health and Fertility': false, 'Udder and Feet': false };
 let shortlist = new Set();
 
 // ---- Auth / subscription state ----
@@ -1052,7 +1054,7 @@ function applyFilterGating(){
     const overlay = document.createElement('div');
     overlay.className = 'locked-overlay';
     overlay.innerHTML = `<span class="lock-icon">🔒</span><p>Custom weighting, filters, and search are a Premium feature.</p><button>Upgrade</button>`;
-    overlay.querySelector('button').onclick = () => promptUpgrade('Adjusting individual trait weights, filtering, and searching the bull list are all Premium features. Free accounts can still choose between the Production and Health and Efficiency presets.');
+    overlay.querySelector('button').onclick = () => promptUpgrade('Adjusting individual trait weights, filtering, and searching the bull list are all Premium features. Free accounts can still choose between the Production and Health and Fertility presets.');
     panel.appendChild(overlay);
   });
 }
@@ -1234,6 +1236,7 @@ async function loadPreferencesFromServer(){
   savedPreferences = { weights: data.weights, active_preset: data.active_preset, filters: data.filters, direction: data.direction, economics: data.economics };
   if(data.weights) pcts = withAllTraitKeys(data.weights);
   if(data.active_preset) activePreset = data.active_preset;
+  if(!PRESETS[activePreset]) activePreset = 'production'; // guards against a removed preset (e.g. Balanced) still sitting in an old saved row
   // filters/direction/economics are newer columns — older saved rows may
   // not have them yet, so only apply if present rather than wiping current
   // defaults.
@@ -1576,8 +1579,8 @@ function renderSidebar(){
             <button class="preset-btn ${usingSavedPreferences?'active':''}" id="myPreferencesBtn">⭐ My preferences</button>
             <div class="preset-breakdown-line">
               P ${(bd['Production']??0).toFixed(0)}% &middot;
-              H&amp;E ${(bd['Health and Efficiency']??0).toFixed(0)}% &middot;
-              T&amp;C ${(bd['Type & Conformation']??0).toFixed(0)}%
+              H&amp;E ${(bd['Health and Fertility']??0).toFixed(0)}% &middot;
+              T&amp;C ${(bd['Udder and Feet']??0).toFixed(0)}%
             </div>
           </div>
         `; })() : ''}
@@ -1590,8 +1593,8 @@ function renderSidebar(){
             <button class="preset-btn ${active?'active':''} ${locked?'locked':''}" data-preset="${k}" ${locked?'data-locked="1"':''}>${p.label}</button>
             <div class="preset-breakdown-line">
               P ${(bd['Production']??0).toFixed(0)}% &middot;
-              H&amp;E ${(bd['Health and Efficiency']??0).toFixed(0)}% &middot;
-              T&amp;C ${(bd['Type & Conformation']??0).toFixed(0)}%
+              H&amp;E ${(bd['Health and Fertility']??0).toFixed(0)}% &middot;
+              T&amp;C ${(bd['Udder and Feet']??0).toFixed(0)}%
             </div>
           </div>`;
         }).join('')}
@@ -1670,8 +1673,8 @@ function renderSidebar(){
     </div>
 
     ${groups.filter(g => g !== 'Genetics').map(g => {
-      const isCollapsible = g === 'Health and Efficiency' || g === 'Type & Conformation';
-      const expanded = expandedGroups[g] !== false; // undefined/true = expanded; Health and Efficiency and Type & Conformation start false
+      const isCollapsible = g === 'Health and Fertility' || g === 'Udder and Feet';
+      const expanded = expandedGroups[g] !== false; // undefined/true = expanded; Health and Fertility and Udder and Feet start false
 
       const renderScoredRow = t => {
         const r = filters.ranges[t.key] || {};
@@ -1739,7 +1742,7 @@ function renderSidebar(){
       };
 
       let bodyHtml;
-      if(g === 'Health and Efficiency'){
+      if(g === 'Health and Fertility'){
         // Sub-grouped into Livability / Fertility / Health / Efficiency,
         // rather than one flat list — mirrors how Alta's bull page keeps
         // these apart.
@@ -1853,6 +1856,7 @@ function renderSidebar(){
       if(!savedPreferences) return;
       pcts = withAllTraitKeys(savedPreferences.weights);
       activePreset = savedPreferences.active_preset || activePreset;
+      if(!PRESETS[activePreset]) activePreset = 'production'; // guards against a removed preset (e.g. Balanced) still sitting in an old saved row
       if(savedPreferences.filters) filters = JSON.parse(JSON.stringify(savedPreferences.filters));
       if(savedPreferences.direction){
         if(savedPreferences.direction.useOriginalDirection) useOriginalDirection = {...useOriginalDirection, ...savedPreferences.direction.useOriginalDirection};
@@ -2079,8 +2083,8 @@ const TOGGLEABLE_COLUMNS = [
   {key:'msprating', label:'MSP', numeric:true, decimals:0},
   {key:'bcs', label:'BCS', numeric:true, decimals:0},
   {key:'rfi', label:'RFI', numeric:true, decimals:0},
-  // Type & Conformation columns below follow the same order as the Type
-  // chart on the bull detail page and the Type & Conformation sliders in
+  // Udder and Feet columns below follow the same order as the Type
+  // chart on the bull detail page and the Udder and Feet sliders in
   // the sidebar — CW/BD are the one exception, placed right after STR
   // rather than at the end, matching the sidebar order.
   {key:'sta', label:'STA', numeric:true, decimals:2},
@@ -2384,17 +2388,17 @@ function renderBullDetail(b){
   const el = document.getElementById('main');
   const link = bullExternalLink(b);
 
-  // Type & Conformation splits into two displays: the four -CDN rating
-  // traits (chest width, body depth, hoof health, milking speed) as plain
-  // stat blocks like every other group, and the remaining linear type
-  // traits as a deviation bar chart. Hoof Health, Milking Speed, and Body
-  // Condition Score stay grouped under Health and Efficiency for sidebar
-  // weighting/sliders (unchanged), but on this detail page they display
-  // here in CDN Traits alongside Chest Width and Body Depth, since all are
-  // CDN-style rating traits.
-  const tcTraits = TRAITS.filter(t => t.group === 'Type & Conformation');
-  const cdnTraits = tcTraits.filter(t => t.label.includes('-CDN'))
-    .concat(TRAITS.filter(t => t.key === 'hhrating' || t.key === 'msprating' || t.key === 'bcs'));
+  // Udder and Feet splits into two displays: the linear type traits as a
+  // deviation bar chart, and a separate "CDN Traits" panel gathering every
+  // CDN-style rating trait regardless of which sidebar group it now lives
+  // in — Chest Width and Body Depth moved to Body Weight and Efficiency,
+  // Hoof Health/Milking Speed/BCS stay under Health and Fertility for
+  // sidebar weighting/sliders, but all five still display together here.
+  // Matched by explicit key, not by checking each label for "-CDN" — hh/msp/bcs's
+  // own labels also contain "-CDN", so a label-only filter double-counted them.
+  const CDN_TRAIT_KEYS = ['cw', 'bd', 'hhrating', 'msprating', 'bcs'];
+  const tcTraits = TRAITS.filter(t => t.group === 'Udder and Feet');
+  const cdnTraits = TRAITS.filter(t => CDN_TRAIT_KEYS.includes(t.key));
   const chartTraits = tcTraits.filter(t => !t.label.includes('-CDN'));
 
   const statPanel = (title, traits, extraTraits=[], compact=true) => `
@@ -2420,7 +2424,7 @@ function renderBullDetail(b){
       </div>
     </div>`;
 
-  // Health and Efficiency groups its traits into Livability / Fertility /
+  // Health and Fertility groups its traits into Livability / Fertility /
   // Health / Efficiency sub-sections (similar to how Alta's bull page
   // separates these), rather than one flat list.
   const SUBGROUP_ORDER = ['Livability', 'Fertility', 'Health', 'Efficiency'];
@@ -2434,12 +2438,12 @@ function renderBullDetail(b){
       }</span>
     </div>`;
   const healthEffTraits = [
-    ...TRAITS.filter(t=>t.group==='Health and Efficiency' && t.key!=='hhrating' && t.key!=='msprating' && t.key!=='bcs'),
-    ...EXTRA_TRAITS.filter(t=>t.group==='Health and Efficiency'),
+    ...TRAITS.filter(t=>t.group==='Health and Fertility' && t.key!=='hhrating' && t.key!=='msprating' && t.key!=='bcs'),
+    ...EXTRA_TRAITS.filter(t=>t.group==='Health and Fertility'),
   ];
   const healthEffPanel = `
     <div class="panel">
-      <h2>Health and Efficiency</h2>
+      <h2>Health and Fertility</h2>
       ${SUBGROUP_ORDER.map(sg => {
         const subTraits = healthEffTraits.filter(t => t.subgroup === sg);
         if(subTraits.length === 0) return '';
@@ -2447,6 +2451,20 @@ function renderBullDetail(b){
           <h3 class="detail-subgroup">${sg}</h3>
           <div class="detail-grid compact-grid">${subTraits.map(statCell).join('')}</div>`;
       }).join('')}
+    </div>`;
+
+  const bodyWeightChartTraits = TRAITS.filter(t => ['sta','str','dfm'].includes(t.key));
+  const bodyWeightStatTraits = TRAITS.filter(t => t.group==='Body Weight and Efficiency' && !t.label.includes('-CDN') && !['sta','str','dfm'].includes(t.key));
+  const bodyWeightPanel = `
+    <div class="panel">
+      <h2>Body Weight and Efficiency</h2>
+      <p class="foot-note" style="margin:-4px 0 10px;">Stature, Strength, and Dairy Form shown on a -2 to +2 scale.</p>
+      <div class="type-chart">
+        ${bodyWeightChartTraits.map(t => typeBarRow(b, t)).join('')}
+      </div>
+      <div class="detail-grid compact-grid">
+        ${bodyWeightStatTraits.map(statCell).join('')}
+      </div>
     </div>`;
 
   el.innerHTML = `
@@ -2471,6 +2489,7 @@ function renderBullDetail(b){
 
       ${statPanel('Genetics', TRAITS.filter(t=>t.group==='Genetics'), EXTRA_TRAITS.filter(t=>t.group==='Genetics'))}
       ${statPanel('Production', TRAITS.filter(t=>t.group==='Production'), EXTRA_TRAITS.filter(t=>t.group==='Production'))}
+      ${bodyWeightPanel}
       ${healthEffPanel}
       ${statPanel('CDN Traits', cdnTraits)}
       <div class="panel">
