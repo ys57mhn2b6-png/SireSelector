@@ -928,12 +928,12 @@ const PRESETS = {
   // Depth, Teat Length, Chest Width, and Body Depth at 5 each. Beta Casein
   // (A2) carries no weighting — the a2Only filter below still restricts
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
-  type:      {label:'Type + US NM pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:8,bd:5,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:3,str:5,dfm:4,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
+  type:      {label:'Type + US NM pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0.5,ucl:2.2,tlg:1.3,cw:8,bd:5,sta:0,pl:5,scs:0,a2:0,ruh:6,ruw:5.1,ftp:0.9,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.1,udp:5.4,rlr:2.7,fls:9.3},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
 
-  rdfl:      {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:0,rlr:0,fls:0},
+  rdfl:      {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:0,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true, str:true },
     // RDFL-specific pricing, supplied as $6.38/kg fat, $6.38/kg protein,
