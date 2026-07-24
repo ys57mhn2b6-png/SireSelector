@@ -936,7 +936,7 @@ const PRESETS = {
   // Depth, Teat Length, Chest Width, and Body Depth at 5 each. Beta Casein
   // (A2) carries no weighting — the a2Only filter below still restricts
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
-  type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0.5,ucl:2.2,tlg:1.3,cw:8,bd:5,sta:0,pl:5,scs:0,a2:0,ruh:6,ruw:5.1,ftp:0.9,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.1,udp:5.4,rlr:2.7,fls:9.3},
+  type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
