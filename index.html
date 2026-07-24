@@ -657,7 +657,6 @@ const TRAITS = [
   {key:'pro', label:'Protein', group:'Production', defPct:9.13, source:'core',
    desc:''},
   {key:'milk', label:'Milk', group:'Production', defPct:7.15, source:'core',
-   signToggleLabel:'Positive contribution (more milk = better)',
    desc:''},
   {key:'econprod', label:'Production (Economic Value)', group:'Production', defPct:0, source:'added', noRange:true,
    desc:'Combines Milk, Fat, and Protein into a single $-value using the prices you enter below, then weights that combined value by this slider.'},
@@ -882,14 +881,16 @@ function groupBreakdown(pcts){
 const PRESETS = {
   balanced:  {label:'Balanced', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { milk:false } },
+    direction: { rpa:true, sta:true },
+    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
   // Production focus: Fat/Protein at 30/25, Milk at 0; Health and Efficiency
   // uses the same flat RDFL weights (DPR, SCE, LIV, MAS, RFI, Hoof Health,
   // Milking Speed at 5 each); Type & Conformation only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
   production:{label:'Production focus', pcts: {fat:0,pro:0,milk:0,econprod:55,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { milk:true } },
+    direction: { rpa:true, sta:true },
+    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
   // Health and efficiency focus: Fat/Protein/Milk at 10/8/7. Health and
   // Efficiency weights 13 traits flat at 5% each — LIV, HLV, DPR, SCE, EFC,
   // DCE, SSB, DSB, MAS, SCS, Hoof Health, Milking Speed, RFI. Type &
@@ -898,7 +899,8 @@ const PRESETS = {
   // for this preset (along with RDFL) — every other preset leaves it off.
   health:    {label:'Health and efficiency focus', pcts: {fat:0,pro:0,milk:0,econprod:25,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { milk:true } },
+    direction: { rpa:true, sta:true },
+    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
   // Type & conformation focus: rpa/ucl/tlg/cw/bd/sta/hhrating/ruh/ruw/ftp/rtp
   // rescaled by 57/60 to make room for trw (3.00) inside the group's 60%
   // target, so Production 20 / Health and Efficiency 20 / Type & Conformation
@@ -914,7 +916,8 @@ const PRESETS = {
   // rather than the reward-short/reward-sloped one-directional scoring.
   type:      {label:'Type & conformation focus', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { rpa:false, sta:false, milk:true } },
+    direction: { rpa:false, sta:false },
+    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
 
   // RDFL: same relative weights as Balanced, just rescaled so they sum to
   // exactly 100.00 (Balanced's own raw numbers add up to 100.01 — harmless
@@ -933,7 +936,13 @@ const PRESETS = {
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
   rdfl:      {label:'RDFL', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
-    direction: { rpa:true, sta:true, milk:false } },
+    direction: { rpa:true, sta:true },
+    // RDFL-specific pricing, supplied as $6.38/kg fat, $6.38/kg protein,
+    // -$0.08/kg milk — converted to $/lb here since that's the canonical
+    // unit economicValues is always stored in (1 kg = 2.20462 lb), with
+    // unit:'kg' so the inputs also *display* in kg to match how these
+    // were specified.
+    economics: { fatPrice: 6.38/2.20462, proPrice: 6.38/2.20462, milkPrice: -0.08/2.20462, unit: 'kg' } },
 };
 
 // Economic values default to NM$ (Net Merit $) per-lb economic values —
@@ -1829,7 +1838,12 @@ function renderSidebar(){
       if(preset.direction){
         if('rpa' in preset.direction) useOriginalDirection.rpa = preset.direction.rpa;
         if('sta' in preset.direction) useOriginalDirection.sta = preset.direction.sta;
-        if('milk' in preset.direction) positiveDirection.milk = preset.direction.milk;
+      }
+      if(preset.economics){
+        const { unit, ...prices } = preset.economics;
+        economicValues = {...economicValues, ...prices};
+        if(unit) economicPriceUnit = unit;
+        recomputeEconomicProductionStats();
       }
       render();
     };
