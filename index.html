@@ -1769,9 +1769,9 @@ function renderSidebar(){
           <div class="desc">Used to combine Milk, Fat, and Protein into the Production (Economic Value) slider below. Defaults to NM$ (Net Merit $) economic values. Edit these to match your own milk payment structure, or region's pricing. Leave at 0 to exclude a component. Set milk to negative if that is penalised.</div>
           <button type="button" id="econUnitToggle" class="btn-link">Switch to $/${economicPriceUnit === 'kg' ? 'lb' : 'kg'}</button>
           <div class="econ-price-row">
-            <label>$/${unitLabel} Fat<input type="number" step="any" id="econPriceFat" value="${toDisplay(economicValues.fatPrice)}"></label>
-            <label>$/${unitLabel} Protein<input type="number" step="any" id="econPriceProtein" value="${toDisplay(economicValues.proPrice)}"></label>
-            <label>$/${unitLabel} Milk<input type="number" step="any" id="econPriceMilk" value="${toDisplay(economicValues.milkPrice)}"></label>
+            <label>$/${unitLabel} Fat<input type="number" step="0.01" id="econPriceFat" value="${toDisplay(economicValues.fatPrice).toFixed(2)}"></label>
+            <label>$/${unitLabel} Protein<input type="number" step="0.01" id="econPriceProtein" value="${toDisplay(economicValues.proPrice).toFixed(2)}"></label>
+            <label>$/${unitLabel} Milk<input type="number" step="0.001" id="econPriceMilk" value="${toDisplay(economicValues.milkPrice).toFixed(3)}"></label>
           </div>
         </div>`;
         // Fat/Pro/Milk keep their min/max range filter (so users can still
