@@ -202,7 +202,7 @@
   .slider-row .top .val{font-family:'JetBrains Mono',monospace; color:var(--amber); font-weight:500;}
   .slider-row .top .pct-input{
     font-family:'JetBrains Mono',monospace; color:var(--amber); font-weight:500;
-    width:52px; text-align:right; padding:2px 4px; font-size:12.5px;
+    width:64px; text-align:right; padding:2px 4px; font-size:12.5px;
     border:1px solid transparent; background:transparent; border-radius:4px;
   }
   .slider-row .top .pct-input:hover, .slider-row .top .pct-input:focus{
@@ -254,8 +254,8 @@
   .preset-btn.active{background:var(--green-deep); color:var(--paper);}
 
   .preset-breakdown-line{
-    font-size:10.5px; color:var(--slate); font-family:'JetBrains Mono',monospace;
-    padding-left:12px;
+    font-size:9.5px; color:var(--slate); font-family:'JetBrains Mono',monospace;
+    padding-left:8px; letter-spacing:-0.2px;
   }
 
   .reset-link{font-size:11.5px; color:var(--slate); cursor:pointer; text-decoration:underline; background:none; border:none; padding:0;}
@@ -745,7 +745,7 @@ const TRAITS = [
   {key:'rpa', label:'Rump Angle (RPA)', group:'Udder and Feet', defPct:3.96, source:'core',
    toggleLabel:'Reward sloped, penalize high pins',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'trw', label:'Thurl Width (TRW)', group:'Udder and Feet', defPct:0, source:'added',
+  {key:'trw', label:'Thurl Width (TRW)', group:'Body Weight and Efficiency', defPct:0, source:'added',
    desc:''},
   {key:'rls', label:'Rear Legs-Side (RLS)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
    desc:'0 is optimum and any deviation is penalized.'},
@@ -928,12 +928,12 @@ const PRESETS = {
   // Depth, Teat Length, Chest Width, and Body Depth at 5 each. Beta Casein
   // (A2) carries no weighting — the a2Only filter below still restricts
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
-  type:      {label:'Type + US NM pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
+  type:      {label:'Type + US NM pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:8,bd:5,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:3,str:5,dfm:4,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
 
-  rdfl:      {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
+  rdfl:      {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:0,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true, str:true },
     // RDFL-specific pricing, supplied as $6.38/kg fat, $6.38/kg protein,
@@ -1576,9 +1576,9 @@ function renderSidebar(){
           <div class="preset-item">
             <button class="preset-btn ${usingSavedPreferences?'active':''}" id="myPreferencesBtn">⭐ My preferences</button>
             <div class="preset-breakdown-line">
-              PROD ${(bd['Production']??0).toFixed(0)}% &middot;
-              EFF ${(bd['Body Weight and Efficiency']??0).toFixed(0)}% &middot;
-              HTH ${(bd['Health and Fertility']??0).toFixed(0)}% &middot;
+              PROD ${(bd['Production']??0).toFixed(0)}%&middot;
+              EFF ${(bd['Body Weight and Efficiency']??0).toFixed(0)}%&middot;
+              HTH ${(bd['Health and Fertility']??0).toFixed(0)}%&middot;
               TYPE ${(bd['Udder and Feet']??0).toFixed(0)}%
             </div>
           </div>
@@ -1591,9 +1591,9 @@ function renderSidebar(){
           return `<div class="preset-item">
             <button class="preset-btn ${active?'active':''} ${locked?'locked':''}" data-preset="${k}" ${locked?'data-locked="1"':''}>${p.label}</button>
             <div class="preset-breakdown-line">
-              PROD ${(bd['Production']??0).toFixed(0)}% &middot;
-              EFF ${(bd['Body Weight and Efficiency']??0).toFixed(0)}% &middot;
-              HTH ${(bd['Health and Fertility']??0).toFixed(0)}% &middot;
+              PROD ${(bd['Production']??0).toFixed(0)}%&middot;
+              EFF ${(bd['Body Weight and Efficiency']??0).toFixed(0)}%&middot;
+              HTH ${(bd['Health and Fertility']??0).toFixed(0)}%&middot;
               TYPE ${(bd['Udder and Feet']??0).toFixed(0)}%
             </div>
           </div>`;
@@ -1834,16 +1834,7 @@ function renderSidebar(){
         if('excludeHaplotype' in preset.filters) filters.excludeHaplotype = preset.filters.excludeHaplotype;
         if(preset.filters.studGroups) filters.studGroups = {...preset.filters.studGroups};
       }
-      if(preset.direction){
-        if('rpa' in preset.direction) useOriginalDirection.rpa = preset.direction.rpa;
-        if('sta' in preset.direction) useOriginalDirection.sta = preset.direction.sta;
-      }
-      if(preset.economics){
-        const { unit, ...prices } = preset.economics;
-        economicValues = {...economicValues, ...prices};
-        if(unit) economicPriceUnit = unit;
-        recomputeEconomicProductionStats();
-      }
+      applyPresetDirectionAndEconomics(preset);
       render();
     };
   });
@@ -2481,8 +2472,8 @@ function renderBullDetail(b){
       }).join('')}
     </div>`;
 
-  const bodyWeightChartTraits = TRAITS.filter(t => ['sta','str','dfm'].includes(t.key));
-  const bodyWeightStatTraits = TRAITS.filter(t => t.group==='Body Weight and Efficiency' && !t.label.includes('-CDN') && !['sta','str','dfm'].includes(t.key));
+  const bodyWeightChartTraits = TRAITS.filter(t => ['sta','str','dfm','trw'].includes(t.key));
+  const bodyWeightStatTraits = TRAITS.filter(t => t.group==='Body Weight and Efficiency' && !t.label.includes('-CDN') && !['sta','str','dfm','trw'].includes(t.key));
   const bodyWeightPanel = `
     <div class="panel">
       <h2>Body Weight and Efficiency</h2>
@@ -2544,6 +2535,28 @@ function route(){
   document.getElementById('layout').classList.remove('detail-mode');
   render();
 }
+// Applies a preset's direction (Rump Angle/Stature/Strength one-directional
+// vs symmetric toggles) and economics ($ prices) settings. Shared between
+// initial page load and the preset-switch button handler, so a toggleable
+// trait added to a preset's direction object can't silently do nothing on
+// first load the way Strength's str:true did before this was factored out
+// (the switch handler had it, but nothing applied it until a button was
+// actually clicked — Production is the default active preset from the
+// start, so its own direction settings need applying immediately too).
+function applyPresetDirectionAndEconomics(preset){
+  if(preset.direction){
+    if('rpa' in preset.direction) useOriginalDirection.rpa = preset.direction.rpa;
+    if('sta' in preset.direction) useOriginalDirection.sta = preset.direction.sta;
+    if('str' in preset.direction) useOriginalDirection.str = preset.direction.str;
+  }
+  if(preset.economics){
+    const { unit, ...prices } = preset.economics;
+    economicValues = {...economicValues, ...prices};
+    if(unit) economicPriceUnit = unit;
+    recomputeEconomicProductionStats();
+  }
+}
+
 async function init(){
   document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Loading bull data…</h3><p>Fetching bulls_1.json — this can take a few seconds on a slow connection.</p></div>`;
   try {
@@ -2555,6 +2568,7 @@ async function init(){
     // rather than as a literal "0" tag.
     BULLS.forEach(b => { if(b.a2 === '0') b.a2 = null; });
     recomputeEconomicProductionStats(); // safe with default (0) prices; re-run once real saved prices load, if any
+    applyPresetDirectionAndEconomics(PRESETS[activePreset]); // Production is the default active preset — apply its direction/economics immediately, not just on a later button click
   } catch(err) {
     document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Couldn't load bull data</h3><p>${err.message}. Make sure bulls_1.json is in the same folder as this HTML file, and that you're viewing this over a web server rather than by double-clicking the file — browsers block local file:// pages from fetching other local files. A quick local server: run <code>python3 -m http.server</code> in that folder, then open http://localhost:8000/.</p></div>`;
     return;
