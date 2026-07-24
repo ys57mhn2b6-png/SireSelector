@@ -2426,10 +2426,12 @@ function renderBullDetail(b){
   // Matched by explicit key, not by checking each label for "-CDN" — hh/msp/bcs's
   // own labels also contain "-CDN", so a label-only filter double-counted them.
   const CDN_TRAIT_KEYS = ['cw', 'bd', 'hhrating', 'msprating', 'bcs'];
-  const tcTraits = TRAITS.filter(t => t.group === 'Udder and Feet');
   const cdnTraits = TRAITS.filter(t => CDN_TRAIT_KEYS.includes(t.key));
-  const chartTraits = tcTraits.filter(t => !t.label.includes('-CDN'))
-    .concat(TRAITS.filter(t => ['sta','str','dfm','trw','rpa'].includes(t.key)));
+  // Explicit display order for the Type chart, rather than following
+  // TRAITS array/group order: STA, DFM, STR, TRW, RPA, then RLS, RLR, FTA,
+  // FLS, then FU, RUH, RUW, UC, UDP, FTP, RTP, TL.
+  const CHART_TRAIT_ORDER = ['sta','dfm','str','trw','rpa','rls','rlr','fta','fls','fua','ruh','ruw','ucl','udp','ftp','rtp','tlg'];
+  const chartTraits = CHART_TRAIT_ORDER.map(k => TRAITS.find(t => t.key === k)).filter(Boolean);
 
   const statPanel = (title, traits, extraTraits=[], compact=true, stripCDNLabel=false) => `
     <div class="panel">
