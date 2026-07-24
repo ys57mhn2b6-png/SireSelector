@@ -161,6 +161,14 @@
   .type-bar-fill{position:absolute; top:1px; bottom:1px; border-radius:2px;}
   .type-bar-fill.pos{background:var(--green-mid);}
   .type-bar-fill.neg{background:var(--amber);}
+  .type-chart-axis{border-bottom:none; padding-bottom:2px;}
+  .type-chart-axis .axis-track{
+    background:none; height:auto; overflow:visible;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .type-chart-axis .axis-min, .type-chart-axis .axis-max{
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--slate);
+  }
   .detail-stat{padding:8px 10px; background:#F1ECDE; border-radius:8px;}
   .detail-stat-label{display:block; font-size:10.5px; color:var(--slate); margin-bottom:2px;}
   .detail-stat-val{font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; color:var(--ink);}
@@ -702,11 +710,11 @@ const TRAITS = [
    desc:''},
   {key:'liv', label:'Cow Livability (LIV)', group:'Health and Fertility', subgroup:'Livability', defPct:4.66, source:'core',
    desc:''},
-  {key:'mas', label:'Mastitis Resistance (MAS)', group:'Health and Fertility', subgroup:'Health', defPct:6.36, source:'core',
-   desc:''},
   {key:'pl', label:'Productive Life (PL)', group:'Health and Fertility', subgroup:'Livability', defPct:0, source:'added',
    desc:''},
   {key:'scs', label:'Somatic Cell Score (SCS)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
+   desc:''},
+  {key:'mas', label:'Mastitis Resistance (MAS)', group:'Health and Fertility', subgroup:'Health', defPct:6.36, source:'core',
    desc:''},
 
   {key:'efc', label:'Early First Calving (EFC)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
@@ -1552,7 +1560,7 @@ function fmt(v, d=1){
 // traits keep their natural 1–2 decimal places. Same mapping the results
 // table already uses per-column.
 const TRAIT_DECIMALS = {
-  fat:0, pro:0, milk:0, dpr:1, sce:1, liv:1, mas:1, pl:1, scs:2,
+  fat:0, pro:0, milk:0, dpr:1, sce:1, liv:1, mas:1, pl:1, scs:2, econprod:0,
   rpa:2, ucl:2, tlg:2, cw:0, bd:0, sta:2, hhrating:0, msprating:0, bcs:0, rfi:0,
   ruh:2, ruw:2, ftp:2, rtp:2,
   met:1, rpl:1, efc:1, hlv:1, fs:0, dce:1, ssb:1, dsb:1, hcr:1, ccr:1, trw:2,
@@ -2418,15 +2426,16 @@ function renderBullDetail(b){
   const CDN_TRAIT_KEYS = ['cw', 'bd', 'hhrating', 'msprating', 'bcs'];
   const tcTraits = TRAITS.filter(t => t.group === 'Udder and Feet');
   const cdnTraits = TRAITS.filter(t => CDN_TRAIT_KEYS.includes(t.key));
-  const chartTraits = tcTraits.filter(t => !t.label.includes('-CDN'));
+  const chartTraits = tcTraits.filter(t => !t.label.includes('-CDN'))
+    .concat(TRAITS.filter(t => ['sta','str','dfm','trw'].includes(t.key)));
 
-  const statPanel = (title, traits, extraTraits=[], compact=true) => `
+  const statPanel = (title, traits, extraTraits=[], compact=true, stripCDNLabel=false) => `
     <div class="panel">
       <h2>${title}</h2>
       <div class="detail-grid${compact ? ' compact-grid' : ''}">
         ${traits.map(t => `
           <div class="detail-stat${compact ? ' compact' : ''}">
-            <span class="detail-stat-label">${t.label}</span>
+            <span class="detail-stat-label">${t.key==='econprod' ? 'Production $' : stripCDNLabel ? t.label.replace(' -CDN', '') : t.label}</span>
             <span class="detail-stat-val">${t.key==='a2' ? (b.a2 || '—') : t.key==='econprod' ? fmt(economicProductionValue(b), TRAIT_DECIMALS[t.key] ?? 2) : fmt(b[t.key], TRAIT_DECIMALS[t.key] ?? 2) + (t.suffix && typeof b[t.key]==='number' ? t.suffix : '')}</span>
           </div>
         `).join('')}
@@ -2472,17 +2481,12 @@ function renderBullDetail(b){
       }).join('')}
     </div>`;
 
-  const bodyWeightChartTraits = TRAITS.filter(t => ['sta','str','dfm','trw'].includes(t.key));
-  const bodyWeightStatTraits = TRAITS.filter(t => t.group==='Body Weight and Efficiency' && !t.label.includes('-CDN') && !['sta','str','dfm','trw'].includes(t.key));
-  const bodyWeightPanel = `
+  const efficiencyTraits = TRAITS.filter(t => ['rfi','fs'].includes(t.key));
+  const efficiencyPanel = `
     <div class="panel">
-      <h2>Body Weight and Efficiency</h2>
-      <p class="foot-note" style="margin:-4px 0 10px;">Stature, Strength, and Dairy Form shown on a -2 to +2 scale.</p>
-      <div class="type-chart">
-        ${bodyWeightChartTraits.map(t => typeBarRow(b, t)).join('')}
-      </div>
+      <h2>Efficiency</h2>
       <div class="detail-grid compact-grid">
-        ${bodyWeightStatTraits.map(statCell).join('')}
+        ${efficiencyTraits.map(statCell).join('')}
       </div>
     </div>`;
 
@@ -2508,12 +2512,18 @@ function renderBullDetail(b){
 
       ${statPanel('Genetics', TRAITS.filter(t=>t.group==='Genetics'), EXTRA_TRAITS.filter(t=>t.group==='Genetics'))}
       ${statPanel('Production', TRAITS.filter(t=>t.group==='Production'), EXTRA_TRAITS.filter(t=>t.group==='Production'))}
-      ${bodyWeightPanel}
+      ${efficiencyPanel}
       ${healthEffPanel}
-      ${statPanel('CDN Traits', cdnTraits)}
+      ${statPanel('CDN Traits', cdnTraits, [], true, true)}
       <div class="panel">
         <h2>Type</h2>
-        <p class="foot-note" style="margin:-4px 0 10px;">Scale: -2 to +2</p>
+        <div class="type-bar-row type-chart-axis">
+          <span class="type-bar-label"></span>
+          <span class="type-bar-desc left"></span>
+          <span class="type-bar-track axis-track"><span class="axis-min">-2</span><span class="axis-max">+2</span></span>
+          <span class="type-bar-desc right"></span>
+          <span class="type-bar-val"></span>
+        </div>
         <div class="type-chart">
           ${chartTraits.map(t => typeBarRow(b, t)).join('')}
         </div>
