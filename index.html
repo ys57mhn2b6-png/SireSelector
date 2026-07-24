@@ -659,8 +659,8 @@ const TRAITS = [
   {key:'milk', label:'Milk', group:'Production', defPct:7.15, source:'core',
    signToggleLabel:'Positive contribution (more milk = better)',
    desc:'Whether more milk helps or hurts your score depends on how your milk payments are structured. Check/uncheck below to set this.'},
-  {key:'econprod', label:'Production (Economic Value)', group:'Production', defPct:0, source:'added',
-   desc:'Combines Milk, Fat, and Protein into a single $-value using the prices you enter below, then weights that combined value by this slider. Replaces weighting Milk/Fat/Protein individually, since actual milk/component pricing varies by region and processor contract.'},
+  {key:'econprod', label:'Production (Economic Value)', group:'Production', defPct:0, source:'added', noRange:true,
+   desc:'Combines Milk, Fat, and Protein into a single $-value using the prices you enter below, then weights that combined value by this slider.'},
   {key:'fatpct', label:'Fat % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
    desc:''},
   {key:'propct', label:'Pro % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
@@ -936,12 +936,20 @@ const PRESETS = {
     direction: { rpa:true, sta:true, milk:false } },
 };
 
-// Economic values are set by the USER (dollars per unit of PTA for fat,
-// protein, and milk), not hardcoded — actual milk/component pricing varies
-// by region, country, and processor contract, so no single fixed value
-// would be honest here. Defaults to 0 so the composite contributes nothing
-// until the user deliberately enters their own prices.
-let economicValues = { fatPrice: 0, proPrice: 0, milkPrice: 0 };
+// Economic values default to NM$ (Net Merit $) per-lb economic values —
+// user-editable from here, since actual milk/component pricing varies by
+// region, country, and processor contract, and NM$'s own values get
+// revised periodically. These specific figures were supplied directly by
+// the app owner, not independently re-derived here — worth reconfirming
+// against the current CDCB NM$ publication periodically.
+let economicValues = { fatPrice: 5.01, proPrice: 3.33, milkPrice: 0.022 };
+// Display/input unit only — the values above are always stored internally
+// in $/lb (matching the fat/pro/milk PTA fields, which are in lbs), since
+// that's what economicProductionValue() below multiplies against. Toggling
+// this just changes how the three inputs are shown and parsed; it doesn't
+// touch the stored canonical values.
+let economicPriceUnit = 'lb';
+const LB_PER_KG = 2.20462;
 
 // Returns null (rather than 0) if any underlying PTA is missing, so a bull
 // with unknown fat/pro/milk doesn't silently score as "economically
@@ -1197,7 +1205,7 @@ async function savePreferencesToServer(){
   if(!isPremium()) return;
   normalizePctsToExactly100(pcts); // saved weights should always sum to exactly 100%, regardless of whether the user remembered to click Normalize first
   const direction = { useOriginalDirection: {...useOriginalDirection}, positiveDirection: {...positiveDirection} };
-  const economics = {...economicValues};
+  const economics = {...economicValues, unit: economicPriceUnit};
   const { error } = await sb.from('saved_preferences').upsert({
     user_id: authSession.user.id, weights: pcts, active_preset: activePreset,
     filters: filters, direction: direction, economics: economics, updated_at: new Date().toISOString()
@@ -1225,7 +1233,19 @@ async function loadPreferencesFromServer(){
     if(data.direction.useOriginalDirection) useOriginalDirection = {...useOriginalDirection, ...data.direction.useOriginalDirection};
     if(data.direction.positiveDirection) positiveDirection = {...positiveDirection, ...data.direction.positiveDirection};
   }
-  if(data.economics) economicValues = {...economicValues, ...data.economics};
+  if(data.economics){
+    const { unit, ...prices } = data.economics;
+    // Anyone who saved preferences before NM$ defaults existed has a
+    // literal 0/0/0 stored (that was the only default available then).
+    // Treat all-zero as "never actually customized" rather than a
+    // deliberate choice, so it doesn't permanently mask the new NM$
+    // defaults for those users. A genuinely-zeroed single price (e.g. just
+    // milk set to 0 on purpose) is unaffected — this only skips restoring
+    // when ALL THREE are exactly 0.
+    const allZero = Object.values(prices).every(v => v === 0 || v == null);
+    if(!allZero) economicValues = {...economicValues, ...prices};
+    if(unit) economicPriceUnit = unit;
+  }
   recomputeEconomicProductionStats(); // re-derive AVG/MAD.econprod for whatever prices were just loaded
   usingSavedPreferences = true; // returning user starts on their own saved setup, not a named preset
 }
@@ -1664,6 +1684,7 @@ function renderSidebar(){
             ${t.signToggleLabel}
           </label>` : ''}
           <input type="range" data-key="${t.key}" min="0" max="35" step="0.1" value="${pcts[t.key] ?? 0}">
+          ${t.noRange ? '' : `
           <div class="range-row">
             <span class="range-label">Exclude outside range</span>
             <div class="range-inputs">
@@ -1672,7 +1693,7 @@ function renderSidebar(){
               <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
               ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
             </div>
-          </div>
+          </div>`}
         </div>`;
       };
       const renderExtraRow = t => {
@@ -1731,19 +1752,29 @@ function renderSidebar(){
         // wouldn't reflect real regional/processor pricing differences.
         // They stay visible elsewhere (bull detail page, columns, CSV
         // export) as raw PTA values — just excluded from this slider list.
+        const unitLabel = economicPriceUnit === 'kg' ? 'kg' : 'lb';
+        const toDisplay = v => economicPriceUnit === 'kg' ? (v * LB_PER_KG) : v;
         const priceInputsHtml = `
         <div class="slider-row economic-value-inputs">
           <div class="top"><span class="name">$ Prices for Economic Value</span></div>
-          <div class="desc">Used to combine Milk, Fat, and Protein into the Production (Economic Value) slider below. Set these to match your own milk contract/payment structure — leave at 0 for any component you want excluded.</div>
+          <div class="desc">Used to combine Milk, Fat, and Protein into the Production (Economic Value) slider below. Defaults to NM$ (Net Merit $) economic values — edit these to match your own milk contract/payment structure, or region's pricing, and leave at 0 for any component you want excluded. Milk can be negative if your payment structure penalizes volume (e.g. component-only pricing).</div>
+          <button type="button" id="econUnitToggle" class="btn-link">Switch to $/${economicPriceUnit === 'kg' ? 'lb' : 'kg'}</button>
           <div class="econ-price-row">
-            <label>$/lb Fat<input type="number" step="any" id="econPriceFat" value="${economicValues.fatPrice}"></label>
-            <label>$/lb Protein<input type="number" step="any" id="econPriceProtein" value="${economicValues.proPrice}"></label>
-            <label>$/lb Milk<input type="number" step="any" id="econPriceMilk" value="${economicValues.milkPrice}"></label>
+            <label>$/${unitLabel} Fat<input type="number" step="any" id="econPriceFat" value="${toDisplay(economicValues.fatPrice)}"></label>
+            <label>$/${unitLabel} Protein<input type="number" step="any" id="econPriceProtein" value="${toDisplay(economicValues.proPrice)}"></label>
+            <label>$/${unitLabel} Milk<input type="number" step="any" id="econPriceMilk" value="${toDisplay(economicValues.milkPrice)}"></label>
           </div>
         </div>`;
+        // Fat/Pro/Milk keep their min/max range filter (so users can still
+        // filter the bull list by raw PTA), but no longer get a weighting
+        // slider — renderExtraRow gives filter-only, same as any
+        // non-scored trait. econprod uses renderScoredRow (it's the one
+        // that's actually weighted) but with noRange:true, so it doesn't
+        // also get a redundant/confusing range filter of its own.
         const scoredRows = TRAITS.filter(t=>t.group===g && !['fat','pro','milk'].includes(t.key)).map(renderScoredRow).join('');
+        const fatProMilkFilterRows = TRAITS.filter(t=>['fat','pro','milk'].includes(t.key) && t.group===g).map(renderExtraRow).join('');
         const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
-        bodyHtml = priceInputsHtml + scoredRows + extraRows;
+        bodyHtml = priceInputsHtml + scoredRows + fatProMilkFilterRows + extraRows;
       } else {
         const scoredRows = TRAITS.filter(t=>t.group===g).map(renderScoredRow).join('');
         const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
@@ -1810,7 +1841,12 @@ function renderSidebar(){
         if(savedPreferences.direction.useOriginalDirection) useOriginalDirection = {...useOriginalDirection, ...savedPreferences.direction.useOriginalDirection};
         if(savedPreferences.direction.positiveDirection) positiveDirection = {...positiveDirection, ...savedPreferences.direction.positiveDirection};
       }
-      if(savedPreferences.economics) economicValues = {...economicValues, ...savedPreferences.economics};
+      if(savedPreferences.economics){
+        const { unit, ...prices } = savedPreferences.economics;
+        const allZero = Object.values(prices).every(v => v === 0 || v == null);
+        if(!allZero) economicValues = {...economicValues, ...prices};
+        if(unit) economicPriceUnit = unit;
+      }
       recomputeEconomicProductionStats();
       usingSavedPreferences = true;
       render();
@@ -1900,7 +1936,8 @@ function renderSidebar(){
     if(!el) return;
     el.onchange = e => {
       const v = parseFloat(e.target.value);
-      economicValues[field] = isNaN(v) ? 0 : v;
+      const perLb = isNaN(v) ? 0 : (economicPriceUnit === 'kg' ? v / LB_PER_KG : v);
+      economicValues[field] = perLb;
       recomputeEconomicProductionStats();
       render();
     };
@@ -1908,6 +1945,15 @@ function renderSidebar(){
   wireEconPriceInput('econPriceFat', 'fatPrice');
   wireEconPriceInput('econPriceProtein', 'proPrice');
   wireEconPriceInput('econPriceMilk', 'milkPrice');
+  if(document.getElementById('econUnitToggle')){
+    document.getElementById('econUnitToggle').onclick = () => {
+      // Just flips how the three inputs are displayed/parsed — the
+      // canonical stored values in economicValues are always $/lb and
+      // never get converted or mutated by this toggle itself.
+      economicPriceUnit = economicPriceUnit === 'kg' ? 'lb' : 'kg';
+      render();
+    };
+  }
   document.querySelectorAll('button[data-expandkey]').forEach(btn => {
     btn.onclick = () => {
       const g = btn.dataset.expandkey;
