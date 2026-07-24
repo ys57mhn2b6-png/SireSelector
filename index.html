@@ -1458,7 +1458,7 @@ function computeScore(b, weights){
       else if(b.a2 === 'A1A1') s -= weights.a2;
       continue;
     }
-    const v = b[t.key];
+    const v = (t.key === 'econprod') ? economicProductionValue(b) : b[t.key];
     if(typeof v !== 'number') continue;
     const symmetric = t.deviation || (TOGGLEABLE_DEVIATION[t.key] && !useOriginalDirection[t.key]);
     if(symmetric){
@@ -1692,7 +1692,7 @@ function renderSidebar(){
             <input type="checkbox" data-signkey="${t.key}" ${positiveDirection[t.key]?'checked':''}>
             ${t.signToggleLabel}
           </label>` : ''}
-          <input type="range" data-key="${t.key}" min="0" max="35" step="0.1" value="${pcts[t.key] ?? 0}">
+          <input type="range" data-key="${t.key}" min="0" max="100" step="0.1" value="${pcts[t.key] ?? 0}">
           ${t.noRange ? '' : `
           <div class="range-row">
             <span class="range-label">Exclude outside range</span>
@@ -2404,7 +2404,7 @@ function renderBullDetail(b){
         ${traits.map(t => `
           <div class="detail-stat${compact ? ' compact' : ''}">
             <span class="detail-stat-label">${t.label}</span>
-            <span class="detail-stat-val">${t.key==='a2' ? (b.a2 || '—') : fmt(b[t.key], TRAIT_DECIMALS[t.key] ?? 2) + (t.suffix && typeof b[t.key]==='number' ? t.suffix : '')}</span>
+            <span class="detail-stat-val">${t.key==='a2' ? (b.a2 || '—') : t.key==='econprod' ? fmt(economicProductionValue(b), TRAIT_DECIMALS[t.key] ?? 2) : fmt(b[t.key], TRAIT_DECIMALS[t.key] ?? 2) + (t.suffix && typeof b[t.key]==='number' ? t.suffix : '')}</span>
           </div>
         `).join('')}
         ${extraTraits.map(t => `
