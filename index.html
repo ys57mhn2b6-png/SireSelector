@@ -208,9 +208,11 @@
     width:0; flex:1 1 0; min-width:0; padding:4px 5px; font-size:11.5px; text-align:center;
   }
   .range-inputs span{font-size:10px; color:var(--slate); flex:0 0 auto;}
+  .econ-price-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;}
+  .econ-price-row label{display:flex; flex-direction:column; font-size:10.5px; color:var(--slate); gap:3px; flex:1 1 0; min-width:70px;}
+  .econ-price-row input[type=number]{padding:4px 5px; font-size:11.5px; text-align:center;}
   .range-clear{
-    background:none; border:none; color:var(--slate); cursor:pointer; font-size:15px;
-    line-height:1; padding:0 1px; flex:0 0 auto;
+    background:none; border:none; color:var(--slate); cursor:pointer; font-size:15px;    line-height:1; padding:0 1px; flex:0 0 auto;
   }
   .range-clear:hover{color:var(--red);}
   input[type=range]{
@@ -482,6 +484,11 @@ function ensureAdditionalBullsLoaded(){
 // previously (579 bulls), since HO_2604_sires_avail.xlsx is pre-filtered to
 // only currently-available bulls (2,233 total, vs. 27,158 before).
 const AVG = {
+  // econprod's real value depends on user-entered $ prices and the current
+  // reference population, so it's computed live by
+  // recomputeEconomicProductionStats() rather than hardcoded — this 0 is
+  // just a safe placeholder until that first runs.
+  econprod:0,
   fat:73.8095, pro:42.6952, milk:950.9905, dpr:-0.9324, sce:1.3295, liv:0.0305,
   mas:1.1743, pl:2.6543, scs:2.8854, rpa:0.0315, ucl:0.3116, tlg:-0.2789,
   cw:-1.4095, bd:-2.4667, sta:0.0471, hhrating:100.6571, rfi:-17.0857,
@@ -517,6 +524,9 @@ const AVG = {
 // so a trait's % share of the total = its % share of the score's actual
 // average swing across real bulls, not just its raw weight number.
 const MAD = {
+  // Same story as AVG.econprod above — real value set live, this is just a
+  // safe placeholder (also guards divide-by-zero before prices are entered).
+  econprod:1,
   fat:19.4259, pro:10.4642, milk:501.4957, dpr:1.0041, sce:0.2486, liv:1.5556,
   mas:1.1512, pl:1.0884, scs:0.1210, rpa:0.9204, tlg:0.5068,
   cw:4.3978, bd:3.3232, sta:0.8557, hhrating:3.4569, rfi:69.0993,
@@ -594,6 +604,9 @@ let positiveDirection = { milk: true };
 // which direction is desirable, so that stays a modelling constant instead
 // of a dial, except for sta/rpa which have their own toggle above).
 const SIGN = {
+  // econprod is always higher-is-better by construction (it's a $ value),
+  // regardless of what prices the user enters.
+  econprod:1,
   fat:1, pro:1, milk:-1, dpr:1, sce:-1, liv:1, mas:1, pl:1, scs:-1,
   rpa:1, tlg:1, cw:1, bd:1, sta:-1, hhrating:1, rfi:-1, a2:1,
   ruh:1, ruw:1, msprating:1, trw:1,
@@ -633,6 +646,12 @@ const SIGN = {
 // Trait metadata: label, group, default % share of total absolute
 // contribution, description.
 const TRAITS = [
+  // fat/pro/milk are no longer independently weighted here — see 'econprod'
+  // below. They're kept in TRAITS (still visible on the bull detail page,
+  // column picker, and CSV export as raw PTA values), just excluded from
+  // the sidebar's slider list and forced to pcts=0 everywhere pcts gets
+  // set (see withAllTraitKeys), so a stale saved weight from before this
+  // change can never silently contribute to scoring again.
   {key:'fat', label:'Fat', group:'Production', defPct:16.68, source:'core',
    desc:''},
   {key:'pro', label:'Protein', group:'Production', defPct:9.13, source:'core',
@@ -640,6 +659,8 @@ const TRAITS = [
   {key:'milk', label:'Milk', group:'Production', defPct:7.15, source:'core',
    signToggleLabel:'Positive contribution (more milk = better)',
    desc:'Whether more milk helps or hurts your score depends on how your milk payments are structured. Check/uncheck below to set this.'},
+  {key:'econprod', label:'Production (Economic Value)', group:'Production', defPct:0, source:'added',
+   desc:'Combines Milk, Fat, and Protein into a single $-value using the prices you enter below, then weights that combined value by this slider. Replaces weighting Milk/Fat/Protein individually, since actual milk/component pricing varies by region and processor contract.'},
   {key:'fatpct', label:'Fat % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
    desc:''},
   {key:'propct', label:'Pro % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
@@ -859,14 +880,14 @@ function groupBreakdown(pcts){
 // Rear Legs-Side, Udder Depth, Teat Length, Chest Width, Body Depth at 5
 // each) but with Rump Angle left at 0. Still sums to exactly 35/35/30.
 const PRESETS = {
-  balanced:  {label:'Balanced', pcts: {fat:18,pro:11,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
+  balanced:  {label:'Balanced', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { milk:false } },
   // Production focus: Fat/Protein at 30/25, Milk at 0; Health and Efficiency
   // uses the same flat RDFL weights (DPR, SCE, LIV, MAS, RFI, Hoof Health,
   // Milking Speed at 5 each); Type & Conformation only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
-  production:{label:'Production focus', pcts: {fat:30,pro:25,milk:0,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
+  production:{label:'Production focus', pcts: {fat:0,pro:0,milk:0,econprod:55,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { milk:true } },
   // Health and efficiency focus: Fat/Protein/Milk at 10/8/7. Health and
@@ -875,7 +896,7 @@ const PRESETS = {
   // Conformation uses the same weighting as Production focus: Stature and
   // Feet & Legs Score at 5% each, everything else at 0. A2A2 filter is on
   // for this preset (along with RDFL) — every other preset leaves it off.
-  health:    {label:'Health and efficiency focus', pcts: {fat:10,pro:8,milk:7,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
+  health:    {label:'Health and efficiency focus', pcts: {fat:0,pro:0,milk:0,econprod:25,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:5,dce:5,ssb:5,dsb:5,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:5,hhrating:5,pl:0,scs:5,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:5},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { milk:true } },
   // Type & conformation focus: rpa/ucl/tlg/cw/bd/sta/hhrating/ruh/ruw/ftp/rtp
@@ -891,7 +912,7 @@ const PRESETS = {
   // Still sums to exactly 100 (20/20/60). This preset also switches Stature
   // and Rump Angle to symmetric/deviation scoring (toggle boxes unchecked),
   // rather than the reward-short/reward-sloped one-directional scoring.
-  type:      {label:'Type & conformation focus', pcts: {fat:10.00,pro:10.00,milk:0,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
+  type:      {label:'Type & conformation focus', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:5,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:5,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:0,ucl:0,tlg:5,cw:0,bd:0,sta:5,pl:0,scs:0,a2:0,ruh:5,ruw:5,ftp:5,rtp:5,msprating:0,bcs:0,trw:5,str:5,dfm:5,fta:0,rls:0,fua:5,udp:5,rlr:0,fls:5},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false, milk:true } },
 
@@ -910,10 +931,42 @@ const PRESETS = {
   // Depth, Teat Length, Chest Width, and Body Depth at 5 each. Beta Casein
   // (A2) carries no weighting — the a2Only filter below still restricts
   // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
-  rdfl:      {label:'RDFL', pcts: {fat:15,pro:9,milk:6,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
+  rdfl:      {label:'RDFL', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:5,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:5,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, studGroups:{select:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true, milk:false } },
 };
+
+// Economic values are set by the USER (dollars per unit of PTA for fat,
+// protein, and milk), not hardcoded — actual milk/component pricing varies
+// by region, country, and processor contract, so no single fixed value
+// would be honest here. Defaults to 0 so the composite contributes nothing
+// until the user deliberately enters their own prices.
+let economicValues = { fatPrice: 0, proPrice: 0, milkPrice: 0 };
+
+// Returns null (rather than 0) if any underlying PTA is missing, so a bull
+// with unknown fat/pro/milk doesn't silently score as "economically
+// neutral" — it's treated as unknown, same as any other trait with missing
+// data.
+function economicProductionValue(bull){
+  if(bull.fat == null || bull.pro == null || bull.milk == null) return null;
+  return economicValues.fatPrice*bull.fat + economicValues.proPrice*bull.pro + economicValues.milkPrice*bull.milk;
+}
+
+// Recomputes AVG.econprod/MAD.econprod from the same 105-bull reference
+// population (rel >= 85%, birth after 2020-04-01) used for every other
+// trait's hardcoded constants — computed live here instead, since this
+// composite depends on user-entered prices and can't be precomputed ahead
+// of time. Call once BULLS has loaded, and again every time a price input
+// changes.
+function recomputeEconomicProductionStats(){
+  const refPop = BULLS.filter(b => b.rel != null && b.birth != null && b.rel >= 85 && b.birth > 20200401);
+  const vals = refPop.map(economicProductionValue).filter(v => v != null);
+  if(vals.length === 0){ AVG.econprod = 0; MAD.econprod = 1; return; }
+  const avg = vals.reduce((a,b)=>a+b, 0) / vals.length;
+  const mad = vals.reduce((a,b)=>a+Math.abs(b-avg), 0) / vals.length;
+  AVG.econprod = avg;
+  MAD.econprod = mad || 1; // guard divide-by-zero if every value came out identical (e.g. all prices still 0)
+}
 
 // Backfills any trait key missing from a saved/loaded weights object — most
 // commonly because a trait was added to the app after the user's
@@ -924,6 +977,12 @@ const PRESETS = {
 function withAllTraitKeys(weights){
   const merged = {};
   TRAITS.forEach(t => { merged[t.key] = (weights && weights[t.key] !== undefined && weights[t.key] !== null) ? weights[t.key] : 0; });
+  // fat/pro/milk are permanently retired from individual slider weighting
+  // (see econprod above) — force them to 0 unconditionally, even if a
+  // pre-existing saved preference has a real nonzero value sitting in it,
+  // so an old saved weight can never silently re-enter scoring with no
+  // slider visible to explain or change it.
+  merged.fat = 0; merged.pro = 0; merged.milk = 0;
   return merged;
 }
 let pcts = {...PRESETS.production.pcts};
@@ -1138,31 +1197,36 @@ async function savePreferencesToServer(){
   if(!isPremium()) return;
   normalizePctsToExactly100(pcts); // saved weights should always sum to exactly 100%, regardless of whether the user remembered to click Normalize first
   const direction = { useOriginalDirection: {...useOriginalDirection}, positiveDirection: {...positiveDirection} };
+  const economics = {...economicValues};
   const { error } = await sb.from('saved_preferences').upsert({
     user_id: authSession.user.id, weights: pcts, active_preset: activePreset,
-    filters: filters, direction: direction, updated_at: new Date().toISOString()
+    filters: filters, direction: direction, economics: economics, updated_at: new Date().toISOString()
   });
   if(error){ alert('Could not save preferences: ' + error.message); return; }
   savedPreferences = { weights: {...pcts}, active_preset: activePreset,
-    filters: JSON.parse(JSON.stringify(filters)), direction: JSON.parse(JSON.stringify(direction)) };
+    filters: JSON.parse(JSON.stringify(filters)), direction: JSON.parse(JSON.stringify(direction)),
+    economics: JSON.parse(JSON.stringify(economics)) };
   usingSavedPreferences = true;
   alert('Preferences saved.');
   render();
 }
 async function loadPreferencesFromServer(){
   if(!isPremium()) return;
-  const { data, error } = await sb.from('saved_preferences').select('weights, active_preset, filters, direction').single();
+  const { data, error } = await sb.from('saved_preferences').select('weights, active_preset, filters, direction, economics').single();
   if(error){ savedPreferences = null; return; } // no saved row yet — not an error worth surfacing
-  savedPreferences = { weights: data.weights, active_preset: data.active_preset, filters: data.filters, direction: data.direction };
+  savedPreferences = { weights: data.weights, active_preset: data.active_preset, filters: data.filters, direction: data.direction, economics: data.economics };
   if(data.weights) pcts = withAllTraitKeys(data.weights);
   if(data.active_preset) activePreset = data.active_preset;
-  // filters/direction are new columns — older saved rows may not have them
-  // yet, so only apply if present rather than wiping current defaults.
+  // filters/direction/economics are newer columns — older saved rows may
+  // not have them yet, so only apply if present rather than wiping current
+  // defaults.
   if(data.filters) filters = JSON.parse(JSON.stringify(data.filters));
   if(data.direction){
     if(data.direction.useOriginalDirection) useOriginalDirection = {...useOriginalDirection, ...data.direction.useOriginalDirection};
     if(data.direction.positiveDirection) positiveDirection = {...positiveDirection, ...data.direction.positiveDirection};
   }
+  if(data.economics) economicValues = {...economicValues, ...data.economics};
+  recomputeEconomicProductionStats(); // re-derive AVG/MAD.econprod for whatever prices were just loaded
   usingSavedPreferences = true; // returning user starts on their own saved setup, not a named preset
 }
 
@@ -1660,6 +1724,26 @@ function renderSidebar(){
           return `<h3 class="sidebar-subgroup">${sg}</h3>` +
             items.map(x => x.extra ? renderExtraRow(x.t) : renderScoredRow(x.t)).join('');
         }).join('');
+      } else if(g === 'Production'){
+        // Milk/Fat/Protein are no longer individually weighted — they're
+        // combined into one $-value using the prices entered here (see
+        // econprod in TRAITS/pctToWeights), since fixed per-lb prices
+        // wouldn't reflect real regional/processor pricing differences.
+        // They stay visible elsewhere (bull detail page, columns, CSV
+        // export) as raw PTA values — just excluded from this slider list.
+        const priceInputsHtml = `
+        <div class="slider-row economic-value-inputs">
+          <div class="top"><span class="name">$ Prices for Economic Value</span></div>
+          <div class="desc">Used to combine Milk, Fat, and Protein into the Production (Economic Value) slider below. Set these to match your own milk contract/payment structure — leave at 0 for any component you want excluded.</div>
+          <div class="econ-price-row">
+            <label>$/lb Fat<input type="number" step="any" id="econPriceFat" value="${economicValues.fatPrice}"></label>
+            <label>$/lb Protein<input type="number" step="any" id="econPriceProtein" value="${economicValues.proPrice}"></label>
+            <label>$/lb Milk<input type="number" step="any" id="econPriceMilk" value="${economicValues.milkPrice}"></label>
+          </div>
+        </div>`;
+        const scoredRows = TRAITS.filter(t=>t.group===g && !['fat','pro','milk'].includes(t.key)).map(renderScoredRow).join('');
+        const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
+        bodyHtml = priceInputsHtml + scoredRows + extraRows;
       } else {
         const scoredRows = TRAITS.filter(t=>t.group===g).map(renderScoredRow).join('');
         const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
@@ -1726,6 +1810,8 @@ function renderSidebar(){
         if(savedPreferences.direction.useOriginalDirection) useOriginalDirection = {...useOriginalDirection, ...savedPreferences.direction.useOriginalDirection};
         if(savedPreferences.direction.positiveDirection) positiveDirection = {...positiveDirection, ...savedPreferences.direction.positiveDirection};
       }
+      if(savedPreferences.economics) economicValues = {...economicValues, ...savedPreferences.economics};
+      recomputeEconomicProductionStats();
       usingSavedPreferences = true;
       render();
     };
@@ -1809,6 +1895,19 @@ function renderSidebar(){
   document.querySelectorAll('input[data-signkey]').forEach(inp => {
     inp.onchange = e => { positiveDirection[e.target.dataset.signkey] = e.target.checked; render(); };
   });
+  const wireEconPriceInput = (id, field) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.onchange = e => {
+      const v = parseFloat(e.target.value);
+      economicValues[field] = isNaN(v) ? 0 : v;
+      recomputeEconomicProductionStats();
+      render();
+    };
+  };
+  wireEconPriceInput('econPriceFat', 'fatPrice');
+  wireEconPriceInput('econPriceProtein', 'proPrice');
+  wireEconPriceInput('econPriceMilk', 'milkPrice');
   document.querySelectorAll('button[data-expandkey]').forEach(btn => {
     btn.onclick = () => {
       const g = btn.dataset.expandkey;
@@ -2345,6 +2444,7 @@ async function init(){
     // genotype — normalize to null so it displays and filters as unknown
     // rather than as a literal "0" tag.
     BULLS.forEach(b => { if(b.a2 === '0') b.a2 = null; });
+    recomputeEconomicProductionStats(); // safe with default (0) prices; re-run once real saved prices load, if any
   } catch(err) {
     document.getElementById('main').innerHTML = `<div class="empty-state"><h3>Couldn't load bull data</h3><p>${err.message}. Make sure bulls_1.json is in the same folder as this HTML file, and that you're viewing this over a web server rather than by double-clicking the file — browsers block local file:// pages from fetching other local files. A quick local server: run <code>python3 -m http.server</code> in that folder, then open http://localhost:8000/.</p></div>`;
     return;
