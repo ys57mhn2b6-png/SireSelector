@@ -782,7 +782,7 @@ const TRAITS = [
    toggleLabel:'Reward long, penalize short',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
 
-  {key:'a2', label:'Beta Casein', group:'Genetics', defPct:0, source:'derived',
+  {key:'a2', label:'Beta Casein', group:'Recessives', defPct:0, source:'derived',
    desc:'Rewards A2A2 and penalizes A1A1.'},
 ];
 
@@ -792,15 +792,15 @@ const TRAITS = [
 // traits (kappa) are categorical strings filtered by exact match via
 // checkboxes rather than a numeric min/max.
 const EXTRA_TRAITS = [
-  {key:'kappa', label:'Kappa Casein', group:'Genetics', kind:'genotype', genotypes:['AA','AB','AE','BB','BE','EE'],
+  {key:'kappa', label:'Kappa Casein', group:'Recessives', kind:'genotype', genotypes:['AA','AB','AE','BB','BE','EE'],
    desc:''},
-  {key:'genrecessive', label:'Genetic Recessive', group:'Genetics', kind:'text',
+  {key:'genrecessive', label:'Genetic Recessive', group:'Recessives', kind:'text',
    desc:'From the spreadsheet\'s FertRecessive column — HHC/HMW codes specifically. No longer has its own filter checkboxes; a bull with either code is now folded into "Exclude genetic recessive carriers" alongside the other haplotype flags (HH0–HH6, HHM, HHD). Not part of the scoring model.'},
-  {key:'polled', label:'Polled', group:'Genetics', kind:'boolean',
+  {key:'polled', label:'Polled', group:'Recessives', kind:'boolean',
    desc:'True if the name carries a PP/P suffix, the FertRecessive column says HHP, or the raw HHP allele-copy count is 1 or 2. Filtered via the checkbox below, not a range/genotype list. Not part of the scoring model.'},
-  {key:'red', label:'Red Factor', group:'Genetics', kind:'boolean',
+  {key:'red', label:'Red Factor', group:'Recessives', kind:'boolean',
    desc:'True if the name carries a RED/RC suffix, the FertRecessive column says HHR, or the raw HHR allele-copy count is 1 or 2. Filtered via the checkbox below, not a range/genotype list. Not part of the scoring model.'},
-  {key:'sirestack', label:'Sire Stack', group:'Genetics', kind:'text',
+  {key:'sirestack', label:'Sire Stack', group:'Recessives', kind:'text',
    desc:'The resolved pedigree sire stack, from the spreadsheet\'s "Sire Stack Final" column. Not part of the scoring model, and not filterable.'},
 ];
 
@@ -872,7 +872,7 @@ function normalizePctsToExactly100(pctsObj){
 }
 
 // % of a given pcts object's total allocated to each trait group (Production,
-// Health and Fertility, Udder and Feet, Genetics) — same "share of
+// Body and Efficiency, Health and Fertility, Udder and Feet, Recessives) — same "share of
 // whatever they add up to" logic as pctToWeights, just grouped instead of
 // per-trait. Used to show what each preset actually emphasizes at a glance.
 function groupBreakdown(pcts){
@@ -1007,7 +1007,7 @@ let filters = {a2Only:false, excludeHaplotype:true, excludeClones:true, ranges:{
 // Health and Fertility and Udder and Feet have the most sliders/filters
 // of any groups, so their bodies start collapsed behind an expander to keep
 // the sidebar manageable on first load; Production stays always expanded.
-let expandedGroups = { 'Health and Fertility': false, 'Udder and Feet': false };
+let expandedGroups = { 'Health and Fertility': false, 'Udder and Feet': false, 'Production': false, 'Body and Efficiency': false, 'Recessives': false };
 let shortlist = new Set();
 
 // ---- Auth / subscription state ----
@@ -1630,23 +1630,14 @@ function renderSidebar(){
     </div>
 
     <div class="panel">
-      <h2>Genetics</h2>
-      ${(() => { const r = filters.ranges.rel || {}; const hasRange = r.min != null || r.max != null; return `
-      <div class="slider-row">
-        <div class="top"><span class="name">Reliability (Rel%)</span></div>
-        <div class="range-row">
-          <div class="range-inputs">
-            <input type="number" step="any" min="0" max="90" class="range-min" data-rangekey="rel" placeholder="min" value="${r.min ?? ''}">
-            <span>–</span>
-            <input type="number" step="any" min="0" max="90" class="range-max" data-rangekey="rel" placeholder="max" value="${r.max ?? ''}">
-            ${hasRange ? `<button class="range-clear" data-rangekey="rel" title="Clear this range">×</button>` : ''}
-          </div>
-        </div>
-      </div>`; })()}
+      <h2>Recessives</h2>
+      ${(() => { const expanded = expandedGroups['Recessives'] !== false; return `
+      <button class="expander-btn" data-expandkey="Recessives">${expanded ? '▲ Hide filters & scales' : '▼ Show filters & scales'}</button>
+      ${expanded ? `
       <div class="slider-row">
         <label class="check"><input type="checkbox" id="f_a2" ${filters.a2Only?'checked':''}> A2A2 only</label>
       </div>
-      ${EXTRA_TRAITS.filter(t => t.group === 'Genetics' && t.kind === 'genotype').map(t => `
+      ${EXTRA_TRAITS.filter(t => t.group === 'Recessives' && t.kind === 'genotype').map(t => `
         <div class="slider-row">
           <div class="top"><span class="name">${t.label}</span></div>
           <div class="desc">${t.desc}</div>
@@ -1662,11 +1653,12 @@ function renderSidebar(){
       <label class="check"><input type="checkbox" id="f_red" ${filters.redOnly?'checked':''}> Red factor only</label>
       <label class="check" style="margin-top:10px;"><input type="checkbox" id="f_haplo" ${filters.excludeHaplotype?'checked':''}> Exclude genetic recessive carriers</label>
       <label class="check"><input type="checkbox" id="f_clones" ${filters.excludeClones?'checked':''}> Exclude clones (name ends in -ETN)</label>
+      ` : ''}`; })()}
     </div>
 
-    ${groups.filter(g => g !== 'Genetics').map(g => {
-      const isCollapsible = g === 'Health and Fertility' || g === 'Udder and Feet';
-      const expanded = expandedGroups[g] !== false; // undefined/true = expanded; Health and Fertility and Udder and Feet start false
+    ${groups.filter(g => g !== 'Recessives').map(g => {
+      const isCollapsible = g === 'Health and Fertility' || g === 'Udder and Feet' || g === 'Production' || g === 'Body and Efficiency';
+      const expanded = expandedGroups[g] !== false; // undefined/true = expanded; listed groups start false
 
       const renderScoredRow = t => {
         const r = filters.ranges[t.key] || {};
@@ -1761,7 +1753,7 @@ function renderSidebar(){
         const priceInputsHtml = `
         <div class="slider-row economic-value-inputs">
           <div class="top"><span class="name">$ Prices for Economic Value</span></div>
-          <div class="desc">Used to combine Milk, Fat, and Protein into the Production (Economic Value) slider below. Defaults to NM$ (Net Merit $) economic values. Edit these to match your own milk payment structure, or region's pricing. Leave at 0 to exclude a component. Set milk to negative if that is penalised.</div>
+          <div class="desc">Used to combine Milk, Fat, and Protein into the Production (Economic Value) slider below. Edit these to match your own milk payment structure. Set to 0 or negative to exclude or penalize a component.</div>
           <button type="button" id="econUnitToggle" class="btn-link">Switch to $/${economicPriceUnit === 'kg' ? 'lb' : 'kg'}</button>
           <div class="econ-price-row">
             <label>$/${unitLabel} Fat<input type="number" step="0.01" id="econPriceFat" value="${toDisplay(economicValues.fatPrice).toFixed(2)}"></label>
@@ -1779,9 +1771,23 @@ function renderSidebar(){
         // filters above fat%/pro% (and anything else in the group).
         const econScoredRow = TRAITS.filter(t=>t.key==='econprod').map(renderScoredRow).join('');
         const fatProMilkFilterRows = TRAITS.filter(t=>['fat','pro','milk'].includes(t.key) && t.group===g).map(renderExtraRow).join('');
+        // Reliability lives here now (moved from Recessives), placed right
+        // after Milk since fat/pro/milk render in that declared order above.
+        const reliabilityRow = (() => { const r = filters.ranges.rel || {}; const hasRange = r.min != null || r.max != null; return `
+        <div class="slider-row">
+          <div class="top"><span class="name">Reliability (Rel%)</span></div>
+          <div class="range-row">
+            <div class="range-inputs">
+              <input type="number" step="any" min="0" max="90" class="range-min" data-rangekey="rel" placeholder="min" value="${r.min ?? ''}">
+              <span>–</span>
+              <input type="number" step="any" min="0" max="90" class="range-max" data-rangekey="rel" placeholder="max" value="${r.max ?? ''}">
+              ${hasRange ? `<button class="range-clear" data-rangekey="rel" title="Clear this range">×</button>` : ''}
+            </div>
+          </div>
+        </div>`; })();
         const remainingScoredRows = TRAITS.filter(t=>t.group===g && !['fat','pro','milk','econprod'].includes(t.key)).map(renderScoredRow).join('');
         const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
-        bodyHtml = priceInputsHtml + econScoredRow + fatProMilkFilterRows + remainingScoredRows + extraRows;
+        bodyHtml = priceInputsHtml + econScoredRow + fatProMilkFilterRows + reliabilityRow + remainingScoredRows + extraRows;
       } else {
         const scoredRows = TRAITS.filter(t=>t.group===g).map(renderScoredRow).join('');
         const extraRows = EXTRA_TRAITS.filter(t=>t.group===g).map(renderExtraRow).join('');
@@ -2502,7 +2508,7 @@ function renderBullDetail(b){
         ? `<a class="detail-link-btn" href="${link.url}" target="_blank" rel="noopener">View on ${link.company} →</a>`
         : `<p class="foot-note">No direct sire-directory link is available for this bull's AI company.</p>`}
 
-      ${statPanel('Genetics', TRAITS.filter(t=>t.group==='Genetics'), EXTRA_TRAITS.filter(t=>t.group==='Genetics'))}
+      ${statPanel('Recessives', TRAITS.filter(t=>t.group==='Recessives'), EXTRA_TRAITS.filter(t=>t.group==='Recessives'))}
       ${statPanel('Production', TRAITS.filter(t=>t.group==='Production'), EXTRA_TRAITS.filter(t=>t.group==='Production'))}
       ${efficiencyPanel}
       ${healthEffPanel}
