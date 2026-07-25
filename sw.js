@@ -1,4 +1,4 @@
-// Sire Selector service worker.
+// Sires 4 U service worker.
 // Strategy:
 //  - App shell (HTML/manifest/icons) and the ~2,233-bull bulls_1.json: cached
 //    on install, served cache-first so the app opens instantly and works
@@ -8,7 +8,7 @@
 //    several MB. It's cached the first time it's actually fetched
 //    (stale-while-revalidate), so repeat searches work offline too without
 //    penalizing first load.
-const CACHE_VERSION = 'v39';
+const CACHE_VERSION = 'v41';
 const APP_SHELL_CACHE = `sire-selector-shell-${CACHE_VERSION}`;
 const DATA_CACHE = `sire-selector-data-${CACHE_VERSION}`;
 

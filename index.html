@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sire Selector — Custom Bull Ranking Tool</title>
+<title>Sires 4 U — Custom Bull Ranking Tool</title>
 
 <!-- PWA: installability -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2F4C39">
+<meta name="theme-color" content="#155E3C">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 
 <!-- PWA: iOS home-screen support (Safari doesn't read manifest.json for these) -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Sire Selector">
+<meta name="apple-mobile-web-app-title" content="Sires 4 U">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -419,7 +419,7 @@
 
 <header>
   <div class="account-bar" id="accountBar"></div>
-  <h1>Sire Selector</h1>
+  <h1>Sires 4 U</h1>
   <p>Rank bulls against your breeding priorities. Adjust the sliders to match what matters for your farm and the list re-ranks. Star candidates to build your own list.</p>
   <p class="foot-note">The genetic evaluation data is provided by the Council on Dairy Cattle Breeding (CDCB), except for the type data that is provided by Holstein Association USA. No liability is accepted for errors or omissions in the data.</p>
 </header>
@@ -596,8 +596,8 @@ const K = 201.7223;
 const DEV_MAD = { sta:0.8536, rpa:0.9176, udp:0.8210, tlg:0.5377, str:0.8057 };
 const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true };
 
-// Default is the original one-directional setup for sta, rpa, udp, and tlg
-// (matching RDFL, the app's default preset): reward short/penalize tall for
+// Default is the original one-directional setup for sta, rpa, udp, and tlg:
+// reward short/penalize tall for
 // stature, reward sloped/penalize high pins for rump angle, reward
 // shallow/penalize deep for udder depth, reward long/penalize short for
 // teat length. Unchecking any of these switches that trait to
@@ -895,14 +895,9 @@ function groupBreakdown(pcts){
 // original hand-tuned defaults (or the prior preset), just rescaled so the
 // group hits its target. PL, SCS, and A2A2 are 0 in every preset — all
 // opt-in only.
-// Balanced: Fat/Protein/Milk at 18/11/6; Health and Fertility uses the same
-// flat per-trait weights as RDFL (DPR, SCE, LIV, MAS, RFI, Hoof Health,
-// Milking Speed at 5 each); Udder and Feet also matches RDFL (Stature,
-// Rear Legs-Side, Udder Depth, Teat Length, Chest Width, Body Depth at 5
-// each) but with Rump Angle left at 0. Still sums to exactly 35/35/30.
 const PRESETS = {
   // Production focus: Fat/Protein at 30/25, Milk at 0; Health and Fertility
-  // uses the same flat RDFL weights (DPR, SCE, LIV, MAS, RFI, Hoof Health,
+  // uses the same flat weights as Balanced + NZ Milk Pricing (DPR, SCE, LIV, MAS, RFI, Hoof Health,
   // Milking Speed at 5 each); Udder and Feet only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
   production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
@@ -921,30 +916,23 @@ const PRESETS = {
     direction: { rpa:true, sta:true, str:true },
     economics: { fatPrice:5.01, proPrice:4.73, milkPrice:-0.02, unit:'lb' } },
 
-  // RDFL: same relative weights as Balanced, just rescaled so they sum to
-  // exactly 100.00 (Balanced's own raw numbers add up to 100.01 — harmless
-  // for scoring since pctToWeights always normalizes by whatever the total
-  // currently is, but this preset's numbers are exact on purpose).
-  // Also bundles in filter/direction settings, unlike every other preset
-  // here which only touches importance weights: 70% min reliability, A2A2
-  // only, clones and genetic recessive carriers excluded, and only
-  // Select Sires/Semex/ST Genetics studs. Rump Angle and Stature use their
-  // original one-directional scoring (reward sloped/penalize high pins;
-  // reward short/penalize tall) — this is also the app's overall default.
-  // RDFL: Fat/Protein/Milk at 15/9/6; DPR, SCE, LIV, MAS, RFI, Hoof Health,
-  // and Milking Speed at 5 each; Stature, Rump Angle, Rear Legs-Side, Udder
-  // Depth, Teat Length, Chest Width, and Body Depth at 5 each. Beta Casein
-  // (A2) carries no weighting — the a2Only filter below still restricts
-  // results to A2A2 bulls, it's just not scored. Sums to exactly 100.
+  // Type + US NM Milk Pricing: no Production/Health weighting beyond the
+  // Body and Efficiency group; Udder and Feet carries most of the weight.
   type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
 
-  rdfl:      {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:5,fua:0,udp:0,rlr:0,fls:0},
-    filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, cwMin:-1, bdMin:-1, studGroups:{select:true, semex:true, stg:true} },
+  // Balanced + NZ Milk Pricing: bundles in filter/direction settings, unlike
+  // most other presets here which only touch importance weights: 70% min
+  // reliability, A2A2 only, clones and genetic recessive carriers excluded,
+  // and every marketing company selected. Rump Angle, Stature, and Strength
+  // use their one-directional scoring (reward sloped/penalize high pins;
+  // reward short/penalize tall; penalize strong/reward frail).
+  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+    filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, cwMin:-1, bdMin:-1, studGroups:{select:true, abs:true, alta:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true, str:true },
-    // RDFL-specific pricing, supplied as $6.38/kg fat, $6.38/kg protein,
+    // Custom pricing, supplied as $6.38/kg fat, $6.38/kg protein,
     // -$0.08/kg milk — converted to $/lb here since that's the canonical
     // unit economicValues is always stored in (1 kg = 2.20462 lb), with
     // unit:'kg' so the inputs also *display* in kg to match how these
@@ -1833,8 +1821,8 @@ function renderSidebar(){
       const preset = PRESETS[activePreset];
       pcts = {...preset.pcts};
       // Most presets only touch importance weights. A preset can optionally
-      // also bundle filter/direction settings (currently only RDFL does) —
-      // apply those too when present, leaving everything else untouched.
+      // also bundle filter/direction settings — apply those too when
+      // present, leaving everything else untouched.
       if(preset.filters){
         if('relMin' in preset.filters) filters.ranges.rel = {min: preset.filters.relMin, max: null};
         if('cwMin' in preset.filters) filters.ranges.cw = {min: preset.filters.cwMin, max: filters.ranges.cw?.max ?? null};
@@ -2654,8 +2642,8 @@ function showInstallBanner(kind){
   const root = document.getElementById('installBannerRoot');
   if(!root || root.querySelector('.install-banner')) return; // already showing
   const message = kind === 'ios'
-    ? 'Install Sire Selector: tap the Share icon below, then "Add to Home Screen".'
-    : 'Install Sire Selector on this device for quick, full-screen access — works offline too.';
+    ? 'Install Sires 4 U: tap the Share icon below, then "Add to Home Screen".'
+    : 'Install Sires 4 U on this device for quick, full-screen access — works offline too.';
   root.innerHTML = `
     <div class="install-banner">
       <p>${message}</p>
