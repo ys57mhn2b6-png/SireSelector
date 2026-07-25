@@ -45,7 +45,8 @@
     font-family:'Fraunces',serif; font-weight:700; font-size:30px; margin:0 0 4px;
     color:var(--green-deep); letter-spacing:-0.01em;
   }
-  header p{margin:0; color:var(--slate); font-size:14px; max-width:640px; line-height:1.5;}
+  header p{margin:0; color:var(--slate); font-size:14px; line-height:1.5; white-space:nowrap;}
+  header .foot-note{white-space:nowrap;}
 
   /* Account bar */
   .account-bar{display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:10px; font-size:13px;}
@@ -302,9 +303,12 @@
   tbody tr.starred{background:#FBF1DE;}
   .rank-cell{font-family:'JetBrains Mono',monospace; color:var(--slate); width:28px;}
   .score-cell{font-weight:700; color:var(--green-deep); font-size:13px;}
-  .column-picker{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:10px; width:100%;}
+  .column-picker{display:none; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:10px; width:100%;}
+  .column-picker.mobile-open{display:flex;}
   .column-picker-label{font-size:12px; color:var(--slate); font-weight:600;}
-  .export-top-btn{display:block; width:100%; margin-bottom:12px;}
+  .desktop-toolbar-row{display:flex; gap:8px; margin-bottom:12px;}
+  .export-top-btn{flex:1;}
+  .columns-top-btn{flex:0 0 auto; white-space:nowrap;}
   .chip-check{
     display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--ink);
     background:#F1ECDE; border:1px solid var(--line); border-radius:14px; padding:3px 10px 3px 8px;
@@ -385,7 +389,8 @@
   @media (max-width: 860px){
     header{padding:16px 16px 14px;}
     header h1{font-size:22px;}
-    header p{font-size:12.5px; line-height:1.4;}
+    header p{font-size:12.5px; line-height:1.4; white-space:normal;}
+    header .foot-note{white-space:normal;}
     .layout{display:block; min-height:0;}
     .main{padding:14px 14px 40px; width:100%;}
     .mobile-toolbar-row{display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:12px;}
@@ -401,8 +406,7 @@
       display:block; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:55;
     }
     .layout.detail-mode .mobile-toolbar-row{display:none;}
-    .column-picker{display:none;}
-    .column-picker.mobile-open{display:flex;}
+    .desktop-toolbar-row{display:none;}
     table{font-size:11.5px;}
     tbody td{padding:7px 6px;}
     .detail-grid{grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));}
@@ -420,8 +424,8 @@
 <header>
   <div class="account-bar" id="accountBar"></div>
   <h1>Sires 4 U</h1>
-  <p>Rank bulls against your breeding priorities. Adjust the sliders to match what matters for your farm and the list re-ranks. Star candidates to build your own list.</p>
-  <p class="foot-note">The genetic evaluation data is provided by the Council on Dairy Cattle Breeding (CDCB), except for the type data that is provided by Holstein Association USA. No liability is accepted for errors or omissions in the data.</p>
+  <p>Rank bulls against your breeding priorities. Adjust the sliders to match what matters for your farm. Star candidates to build your own list.</p>
+  <p class="foot-note">The genetic evaluation data is provided by the Council on Dairy Cattle Breeding (CDCB) and Holstein Association USA. No liability is accepted for errors or omissions in the data.</p>
 </header>
 
 <div id="authModalRoot"></div>
@@ -2139,7 +2143,7 @@ let selectedColumns = new Set(['a2','rel','nm','fat','pro','dpr','sce','cw','bd'
 // Mobile only: the column-picker chips are hidden by default on narrow
 // screens (see .column-picker CSS) and revealed via the "Columns" toggle
 // button, same pattern as the Filters drawer.
-let mobileColumnsOpen = false;
+let columnsOpen = false;
 function activeColumns(){
   return [
     {key:'score', label:'Score', numeric:true},
@@ -2171,6 +2175,8 @@ function wireColumnPicker(){
 function wireExportTopBtn(){
   const btn = document.getElementById('exportTopBtn');
   if(btn) btn.onclick = exportShortlist;
+  const colBtn = document.getElementById('columnsTopBtn');
+  if(colBtn) colBtn.onclick = () => { columnsOpen = !columnsOpen; renderMain(); };
 }
 
 function renderMain(){
@@ -2190,12 +2196,14 @@ function renderMain(){
   const hasMore = list.length > shown.length;
 
   const exportTopBtn = `<button class="btn secondary export-top-btn" id="exportTopBtn" ${(isPremium() && shortlist.size===0)?'disabled':''}>${isPremium() ? '' : '🔒 '}Export shortlist (CSV) — ${shortlist.size} bull${shortlist.size===1?'':'s'}</button>`;
+  const columnsTopBtn = `<button class="btn secondary columns-top-btn" id="columnsTopBtn">☰ Columns</button>`;
+  const desktopToolbarRow = `<div class="desktop-toolbar-row">${exportTopBtn}${columnsTopBtn}</div>`;
 
   const toolbar = `
     <div class="toolbar">
       <div class="stats"><b>${list.length.toLocaleString()}</b> of ${BULLS.length.toLocaleString()} bulls match your filters
         ${hasMore ? ` — showing top <b>${shown.length.toLocaleString()}</b> by current sort` : ''}</div>
-      <div class="column-picker${mobileColumnsOpen ? ' mobile-open' : ''}">
+      <div class="column-picker${columnsOpen ? ' mobile-open' : ''}">
         <span class="column-picker-label">Columns:</span>
         ${TOGGLEABLE_COLUMNS.map(c => `
           <label class="chip-check">
@@ -2206,7 +2214,7 @@ function renderMain(){
     </div>`;
 
   if(list.length === 0){
-    el.innerHTML = exportTopBtn + toolbar + `<div class="empty-state"><h3>No bulls match these filters</h3><p>Try loosening the price cap, reliability floor, per-trait range filters, or A2A2/genetic recessive filters.</p></div>`;
+    el.innerHTML = desktopToolbarRow + toolbar + `<div class="empty-state"><h3>No bulls match these filters</h3><p>Try loosening the price cap, reliability floor, per-trait range filters, or A2A2/genetic recessive filters.</p></div>`;
     wireColumnPicker();
     wireExportTopBtn();
     return;
@@ -2228,7 +2236,7 @@ function renderMain(){
     </tr>`;
   }).join('');
 
-  el.innerHTML = exportTopBtn + toolbar + `
+  el.innerHTML = desktopToolbarRow + toolbar + `
     <div class="table-scroll">
       <table>
         <thead><tr>
@@ -2339,7 +2347,7 @@ document.getElementById('mobileFiltersBtn').onclick = () => {
 };
 document.getElementById('sidebarBackdrop').onclick = closeMobileSidebar;
 document.getElementById('mobileColumnsBtn').onclick = () => {
-  mobileColumnsOpen = !mobileColumnsOpen;
+  columnsOpen = !columnsOpen;
   renderMain();
 };
 document.getElementById('mobileExportBtn').onclick = exportShortlist;
