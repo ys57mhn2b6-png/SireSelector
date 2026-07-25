@@ -1876,11 +1876,14 @@ function renderSidebar(){
     savePreferencesToServer();
   };
 
-  document.getElementById('f_a2').onchange = e => { filters.a2Only = e.target.checked; render(); };
-  document.getElementById('f_polled').onchange = e => { filters.polledOnly = e.target.checked; render(); };
-  document.getElementById('f_red').onchange = e => { filters.redOnly = e.target.checked; render(); };
-  document.getElementById('f_haplo').onchange = e => { filters.excludeHaplotype = e.target.checked; render(); };
-  document.getElementById('f_clones').onchange = e => { filters.excludeClones = e.target.checked; render(); };
+  // These five only exist in the DOM when the Recessives panel is expanded
+  // (it now defaults to collapsed) — guard each, same pattern already used
+  // for myPreferencesBtn elsewhere in this function.
+  if(document.getElementById('f_a2')) document.getElementById('f_a2').onchange = e => { filters.a2Only = e.target.checked; render(); };
+  if(document.getElementById('f_polled')) document.getElementById('f_polled').onchange = e => { filters.polledOnly = e.target.checked; render(); };
+  if(document.getElementById('f_red')) document.getElementById('f_red').onchange = e => { filters.redOnly = e.target.checked; render(); };
+  if(document.getElementById('f_haplo')) document.getElementById('f_haplo').onchange = e => { filters.excludeHaplotype = e.target.checked; render(); };
+  if(document.getElementById('f_clones')) document.getElementById('f_clones').onchange = e => { filters.excludeClones = e.target.checked; render(); };
   document.getElementById('f_search').oninput = e => {
     filters.searchText = e.target.value;
     if(filters.searchText.trim()) ensureAdditionalBullsLoaded();

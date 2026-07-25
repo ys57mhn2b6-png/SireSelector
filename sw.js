@@ -8,7 +8,7 @@
 //    several MB. It's cached the first time it's actually fetched
 //    (stale-while-revalidate), so repeat searches work offline too without
 //    penalizing first load.
-const CACHE_VERSION = 'v46';
+const CACHE_VERSION = 'v48';
 const APP_SHELL_CACHE = `sire-selector-shell-${CACHE_VERSION}`;
 const DATA_CACHE = `sire-selector-data-${CACHE_VERSION}`;
 
@@ -73,6 +73,9 @@ self.addEventListener('fetch', event => {
         caches.open(APP_SHELL_CACHE).then(cache => cache.put(req, res.clone()));
       }
       return res;
-    }).catch(() => cached))
+    }).catch(() => cached || new Response(
+      JSON.stringify({ error: 'offline and not yet cached' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    )))
   );
 });
