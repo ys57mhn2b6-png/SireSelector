@@ -907,7 +907,8 @@ const PRESETS = {
   production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
-    economics: { fatPrice:5.01, proPrice:0, milkPrice:0.122, unit:'lb' } },
+    economics: { fatPrice:5.01, proPrice:0, milkPrice:0.122, unit:'lb' },
+    columns: ['rel','fat','pro','cw','bd','sta','fm','str','dfm','rfi'] },
   // Health + US CM Pricing: Body and Efficiency uses the same
   // Stature/Strength/Dairy Form/RFI weights as Production + US FM Pricing
   // (2/6/4/8 = 20% total), Production itself at 30%, and the remaining 50%
@@ -918,14 +919,16 @@ const PRESETS = {
   health:    {label:'Health + US CM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:3.2,gl:0,sce:1.3,liv:8.9,mas:0.6,rfi:8,fs:0,efc:1.6,dce:0.8,ssb:0.8,dsb:2.3,hcr:0.8,ccr:2.7,hlv:1.1,met:0.4,rpl:0.3,dab:0.7,ket:0.1,mfv:0.1,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:19.2,scs:5.1,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
-    economics: { fatPrice:5.01, proPrice:4.73, milkPrice:-0.02, unit:'lb' } },
+    economics: { fatPrice:5.01, proPrice:4.73, milkPrice:-0.02, unit:'lb' },
+    columns: ['rel','fat','pro','dpr','sce','cm','rfi','liv','pl','scs'] },
 
   // Type + US NM Milk Pricing: no Production/Health weighting beyond the
   // Body and Efficiency group; Udder and Feet carries most of the weight.
   type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
-    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' } },
+    economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' },
+    columns: ['rel','nm','fat','pro','cw','bd','sta','fls','ruh','udp'] },
 
   // Balanced + NZ Milk Pricing: bundles in filter/direction settings, unlike
   // most other presets here which only touch importance weights: 70% min
@@ -941,7 +944,8 @@ const PRESETS = {
     // unit economicValues is always stored in (1 kg = 2.20462 lb), with
     // unit:'kg' so the inputs also *display* in kg to match how these
     // were specified.
-    economics: { fatPrice: 6.38/2.20462, proPrice: 6.38/2.20462, milkPrice: -0.08/2.20462, unit: 'kg' } },
+    economics: { fatPrice: 6.38/2.20462, proPrice: 6.38/2.20462, milkPrice: -0.08/2.20462, unit: 'kg' },
+    columns: ['a2','rel','cm','fat','pro','dpr','sce','cw','bd','sta'] },
 };
 
 // Economic values default to NM$ (Net Merit $) per-lb economic values —
@@ -2556,13 +2560,13 @@ function route(){
   render();
 }
 // Applies a preset's direction (Rump Angle/Stature/Strength one-directional
-// vs symmetric toggles) and economics ($ prices) settings. Shared between
-// initial page load and the preset-switch button handler, so a toggleable
-// trait added to a preset's direction object can't silently do nothing on
-// first load the way Strength's str:true did before this was factored out
-// (the switch handler had it, but nothing applied it until a button was
-// actually clicked — Production is the default active preset from the
-// start, so its own direction settings need applying immediately too).
+// vs symmetric toggles), economics ($ prices), and default visible columns.
+// Shared between initial page load and the preset-switch button handler, so
+// a setting added to a preset's config can't silently do nothing on first
+// load the way Strength's str:true did before this was factored out (the
+// switch handler had it, but nothing applied it until a button was actually
+// clicked — Production is the default active preset from the start, so its
+// own settings need applying immediately too).
 function applyPresetDirectionAndEconomics(preset){
   if(preset.direction){
     if('rpa' in preset.direction) useOriginalDirection.rpa = preset.direction.rpa;
@@ -2575,6 +2579,7 @@ function applyPresetDirectionAndEconomics(preset){
     if(unit) economicPriceUnit = unit;
     recomputeEconomicProductionStats();
   }
+  if(preset.columns) selectedColumns = new Set(preset.columns);
 }
 
 async function init(){
