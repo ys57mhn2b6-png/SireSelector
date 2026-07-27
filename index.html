@@ -1126,6 +1126,7 @@ function renderAuthModal(errorMsg){
           <input type="password" id="authPassword" placeholder="Password" required autocomplete="${isSignup?'new-password':'current-password'}" minlength="6">
           <button type="submit" class="btn-primary-full" id="authSubmitBtn">${isSignup ? 'Create account' : 'Sign in'}</button>
         </form>
+        ${isSignup ? `<p class="modal-sub" style="margin-top:10px; font-size:11.5px;">By creating an account, you agree to our <a href="https://sires4u.com/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</p>` : ''}
         <div class="modal-toggle">
           ${isSignup
             ? `Already have an account? <button id="toggleAuthMode">Sign in</button>`
