@@ -3,6 +3,6 @@
 // Stripe calls it server-to-server, not from a browser, so it doesn't need
 // CORS headers and must NOT have JWT verification enabled (see README).
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // tighten to your exact domain(s) once live
+  'Access-Control-Allow-Origin': 'https://apps.sires4u.com', // tightened from '*' now that we're going live
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
