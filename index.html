@@ -496,50 +496,64 @@ function ensureAdditionalBullsLoaded(){
 }
 
 // ---------- Configuration ----------
-// Breed averages, computed from the 105 bulls in HO_2604_sires_avail.xlsx
-// (the "available bulls" file) that meet the reference-population criteria:
-// NM Rel >= 85% and birth date after 2020-04-01. This is both the averaging
-// basis AND the pool of bulls shown in the app. Note this reference
-// population is much smaller than the full-catalogue version this app used
-// previously (579 bulls), since HO_2604_sires_avail.xlsx is pre-filtered to
-// only currently-available bulls (2,233 total, vs. 27,158 before).
+// ---------- Reference-population release date ----------
+// Single source of truth for "how recent counts as current" across the app.
+// Update DATA_RELEASE_DATE each time new proof files are loaded (this run:
+// "2608" = Aug 2026); REFERENCE_CUTOFF_BIRTH recalculates from it
+// automatically, so recomputeEconomicProductionStats() below never needs a
+// manual edit on refresh — only DATA_RELEASE_DATE does. Note the static AVG/
+// MAD/DEV_MAD constants below still need to be regenerated from the new
+// reference population by hand each refresh; this only keeps the *live*
+// econprod filter from drifting out of sync with them.
+const DATA_RELEASE_DATE = 20260801; // YYYYMMDD, the run this data was pulled from
+const REFERENCE_MAX_AGE_YEARS = 7;
+function computeReferenceCutoffBirth(releaseDate, maxAgeYears){
+  const year = Math.floor(releaseDate / 10000);
+  const monthDay = releaseDate % 10000;
+  return (year - maxAgeYears) * 10000 + monthDay;
+}
+const REFERENCE_CUTOFF_BIRTH = computeReferenceCutoffBirth(DATA_RELEASE_DATE, REFERENCE_MAX_AGE_YEARS); // 20190801 for this run
+
+// Breed averages, computed from the 324 bulls in HO_2608_Available.xlsx (the
+// "available bulls" file) that meet the reference-population criteria: NM
+// Rel >= 85% and birth date >= REFERENCE_CUTOFF_BIRTH (within
+// REFERENCE_MAX_AGE_YEARS of DATA_RELEASE_DATE). This is both the averaging
+// basis AND the pool of bulls shown in the app.
 const AVG = {
   // econprod's real value depends on user-entered $ prices and the current
   // reference population, so it's computed live by
   // recomputeEconomicProductionStats() rather than hardcoded — this 0 is
   // just a safe placeholder until that first runs.
   econprod:0,
-  fat:73.8095, pro:42.6952, milk:950.9905, dpr:-0.9324, sce:1.3295, liv:0.0305,
-  mas:1.1743, pl:2.6543, scs:2.8854, rpa:0.0315, ucl:0.3116, tlg:-0.2789,
-  cw:-1.4095, bd:-2.4667, sta:0.0471, hhrating:100.6571, rfi:-17.0857,
+  fat:63.3920, pro:36.5679, milk:726.7654, dpr:0.7423, sce:1.3420, liv:-0.0590,
+  mas:1.4935, pl:2.3713, scs:2.8624, rpa:0.1779, tlg:-0.3238,
+  cw:-1.2006, bd:-2.8395, sta:0.1596, hhrating:99.3426, rfi:-23.3395,
   // ruh/ruw: standard higher-is-better type traits, averaged the normal way.
   // ftp/rtp have no meaningful "average is normal" framing here since their
   // target is a fixed optimum of 0, not the population mean — see MAD note
   // below and the deviation-scoring branch in computeScore().
-  ruh:0.7447, ruw:0.9951,
+  ruh:0.7000, ruw:0.8033,
   // msprating: CDN-style rating trait like hhrating/cw/bd — averaged normally.
-  msprating:100.7810,
-  // bcs: Body Condition Score -CDN rating, same 105-bull reference
-  // population and averaged normally, same style as hhrating/msprating.
-  bcs:97.3714,
+  msprating:100.5741,
+  // bcs: Body Condition Score -CDN rating, same reference population and
+  // averaged normally, same style as hhrating/msprating.
+  bcs:98.2253,
   // trw: standard type trait, averaged normally.
-  trw:0.6243,
+  trw:0.4969,
   // 8 new linear type traits (matching the standard US linear type list),
   // averaged normally like the other type traits above.
-  str:-0.1570, dfm:0.6908, fta:-0.0156, rls:0.2294, fua:0.4549, udp:0.1693, rlr:-0.0197, fls:0.1733,
+  str:-0.1042, dfm:0.5585, fta:0.1379, fua:0.6528, udp:0.4495, rlr:0.0287, fls:0.1312,
   // Traits that were previously display/filter-only, now fully scored per
   // request — averaged normally like every other standard trait above.
-  met:1.2962, rpl:0.0790, dab:-0.0743, ket:-0.0390, mfv:-0.0476, efc:2.7019,
-  hlv:0.1857, fs:70.0000, dce:1.6000, ssb:3.6400, dsb:3.7533, hcr:1.0810,
-  ccr:0.1352, fatpct:0.1283, propct:0.0435,
-  // gl: now available in bulls_1.json (added after the original spreadsheet
-  // was re-supplied), so this is computed from the proper 105-bull
-  // reference population like every other trait.
-  gl:-0.7314
+  met:1.0256, rpl:0.0210, dab:0.1991, ket:0.3046, mfv:-0.0340, efc:2.0574,
+  hlv:0.0460, fs:59.5648, dce:1.6225, ssb:3.6948, dsb:3.7559, hcr:0.8377,
+  ccr:1.8648, fatpct:0.1251, propct:0.0481,
+  // gl: computed from the same reference population like every other trait.
+  gl:-0.5231
 };
 
 // Mean absolute deviation of each trait from AVG, computed from the same
-// 105-bull reference population:
+// reference population:
 //   contribution_i = |weight_i| x mean(|trait_i - AVG_i|)
 // so a trait's % share of the total = its % share of the score's actual
 // average swing across real bulls, not just its raw weight number.
@@ -547,43 +561,38 @@ const MAD = {
   // Same story as AVG.econprod above — real value set live, this is just a
   // safe placeholder (also guards divide-by-zero before prices are entered).
   econprod:1,
-  fat:19.4259, pro:10.4642, milk:501.4957, dpr:1.0041, sce:0.2486, liv:1.5556,
-  mas:1.1512, pl:1.0884, scs:0.1210, rpa:0.9204, tlg:0.5068,
-  cw:4.3978, bd:3.3232, sta:0.8557, hhrating:3.4569, rfi:69.0993,
+  fat:20.9982, pro:12.4613, milk:508.1264, dpr:0.9483, sce:0.2483, liv:1.5296,
+  mas:1.1897, pl:1.1428, scs:0.1326, rpa:0.8593, tlg:0.5802,
+  cw:3.5513, bd:3.4470, sta:0.7569, hhrating:3.2380, rfi:77.4832,
   // a2: not a continuous trait — MAD here is the mean absolute value of a
-  // +1/-1/0 indicator (A2A2=+1, A1A1=-1, else 0) across the 105-bull
-  // reference population (72 A2A2, 5 A1A1), so it slots into the same
+  // +1/-1/0 indicator (A2A2=+1, A1A1=-1, else 0) across the reference
+  // population (178 A2A2, 17 A1A1), so it slots into the same
   // weight = SIGN * (pct/100 * K) / MAD formula as every other trait.
-  a2:0.7333,
+  a2:0.6019,
   // ruh/ruw: standard traits, MAD is the usual mean(|trait - AVG|).
-  ruh:0.7987, ruw:0.8512,
-  // ftp/rtp/ucl: these have a fixed optimum of 0 (deviation in either
+  ruh:0.7526, ruw:0.7316,
+  // ftp/rtp/ucl/rls: these have a fixed optimum of 0 (deviation in either
   // direction is penalized — see the deviation:true traits below), so their
   // MAD is mean(|trait - 0|) instead of mean(|trait - AVG|), computed from
-  // the same 105-bull reference population. This keeps them on the same
-  // weight-share footing as every other trait despite not being centered
-  // on the average.
-  // rls: now a fixed-optimum deviation trait too (0 = optimum, no
-  // one-directional option), same style and same reference population as
-  // ftp/rtp/ucl above.
-  ftp:0.6205, rtp:0.7818, ucl:0.7590, rls:0.7862,
+  // the same reference population. This keeps them on the same weight-share
+  // footing as every other trait despite not being centered on the average.
+  ftp:0.6211, rtp:0.7428, ucl:0.6298, rls:0.7986,
   // msprating: CDN-style rating trait like hhrating/cw/bd — standard MAD from AVG.
-  msprating:2.6843,
+  msprating:2.9760,
   // bcs: Body Condition Score -CDN rating, standard MAD from AVG, same
-  // 105-bull reference population as every other trait.
-  bcs:3.7273,
+  // reference population as every other trait.
+  bcs:3.0903,
   // trw: standard type trait, standard MAD from AVG.
-  trw:0.7143,
-  // 8 new linear type traits, standard MAD from AVG. (rls moved above —
-  // it's now a fixed deviation trait, not scored from the average.)
-  str:0.7856, dfm:0.6676, fta:0.7877, fua:0.8331, udp:0.8039, rlr:0.9136, fls:0.6575,
+  trw:0.6932,
+  // 8 new linear type traits, standard MAD from AVG. (rls is above with
+  // ftp/rtp/ucl — it's a fixed deviation trait, not scored from the average.)
+  str:0.6373, dfm:0.6753, fta:0.6468, fua:0.7021, udp:0.7208, rlr:0.8339, fls:0.6012,
   // Same population, standard MAD from AVG, for the newly-scored traits.
-  met:0.6804, rpl:0.4659, dab:0.4164, ket:0.8176, mfv:0.0851, efc:1.9291,
-  hlv:0.4370, fs:148.2476, dce:0.2743, ssb:0.3211, dsb:0.5055, hcr:1.1468,
-  ccr:1.2826, fatpct:0.0956, propct:0.0413,
-  // gl: standard MAD from AVG, same 105-bull reference population as every
-  // other trait now that bulls_1.json includes GL.
-  gl:1.0685,
+  met:0.7759, rpl:0.5384, dab:0.3153, ket:0.5683, mfv:0.0907, efc:1.7258,
+  hlv:0.5054, fs:139.4239, dce:0.3336, ssb:0.3505, dsb:0.5008, hcr:1.0997,
+  ccr:1.2919, fatpct:0.0983, propct:0.0396,
+  // gl: standard MAD from AVG, same reference population as every other trait.
+  gl:1.1013,
 };
 
 // Calibration constant, chosen so the default percentages reproduce
@@ -593,11 +602,11 @@ const K = 201.7223;
 
 // MAD computed from a fixed optimum of 0 (not the population average) for
 // traits that can be toggled into symmetric "deviation" scoring — same
-// 105-bull reference population, same style as ftp/rtp's own MAD values.
+// reference population, same style as ftp/rtp's own MAD values.
 // sta, rpa, udp, and tlg are toggleable today; ftp/rtp/ucl/rls are
 // permanently deviation traits and already use this style via their
 // entries in MAD above (not here).
-const DEV_MAD = { sta:0.8536, rpa:0.9176, udp:0.8210, tlg:0.5377, str:0.8057 };
+const DEV_MAD = { sta:0.7678, rpa:0.8585, udp:0.8207, tlg:0.6541, str:0.6452 };
 const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true };
 
 // Default is the original one-directional setup for sta, rpa, udp, and tlg:
@@ -972,14 +981,17 @@ function economicProductionValue(bull){
   return economicValues.fatPrice*bull.fat + economicValues.proPrice*bull.pro + economicValues.milkPrice*bull.milk;
 }
 
-// Recomputes AVG.econprod/MAD.econprod from the same 105-bull reference
-// population (rel >= 85%, birth after 2020-04-01) used for every other
+// Recomputes AVG.econprod/MAD.econprod from the same reference population
+// (rel >= 85%, birth >= REFERENCE_CUTOFF_BIRTH) used for every other
 // trait's hardcoded constants — computed live here instead, since this
 // composite depends on user-entered prices and can't be precomputed ahead
 // of time. Call once BULLS has loaded, and again every time a price input
-// changes.
+// changes. The filter uses REFERENCE_CUTOFF_BIRTH (derived from
+// DATA_RELEASE_DATE above) rather than a hardcoded date, so it stays in
+// lockstep with the reference population the static constants were
+// computed from without needing a manual edit here on each refresh.
 function recomputeEconomicProductionStats(){
-  const refPop = BULLS.filter(b => b.rel != null && b.birth != null && b.rel >= 85 && b.birth > 20200401);
+  const refPop = BULLS.filter(b => b.rel != null && b.birth != null && b.rel >= 85 && b.birth >= REFERENCE_CUTOFF_BIRTH);
   const vals = refPop.map(economicProductionValue).filter(v => v != null);
   if(vals.length === 0){ AVG.econprod = 0; MAD.econprod = 1; return; }
   const avg = vals.reduce((a,b)=>a+b, 0) / vals.length;
