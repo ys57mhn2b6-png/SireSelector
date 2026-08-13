@@ -548,6 +548,9 @@ const AVG = {
   met:1.0256, rpl:0.0210, dab:0.1991, ket:0.3046, mfv:-0.0340, efc:2.0574,
   hlv:0.0460, fs:59.5648, dce:1.6225, ssb:3.6948, dsb:3.7559, hcr:0.8377,
   ccr:1.8648, fatpct:0.1251, propct:0.0481,
+  // fcs: First Service to Conception, same reference population as every
+  // other trait. Positive is better per spec.
+  fcs:5.4784,
   // gl: computed from the same reference population like every other trait.
   gl:-0.5231
 };
@@ -591,6 +594,8 @@ const MAD = {
   met:0.7759, rpl:0.5384, dab:0.3153, ket:0.5683, mfv:0.0907, efc:1.7258,
   hlv:0.5054, fs:139.4239, dce:0.3336, ssb:0.3505, dsb:0.5008, hcr:1.0997,
   ccr:1.2919, fatpct:0.0983, propct:0.0396,
+  // fcs: standard MAD from AVG, same reference population as every other trait.
+  fcs:3.9012,
   // gl: standard MAD from AVG, same reference population as every other trait.
   gl:1.1013,
 };
@@ -666,6 +671,8 @@ const SIGN = {
   // follow the same lower-is-better convention as sce above (easier
   // calving / fewer stillbirths = better).
   met:1, rpl:1, dab:1, ket:1, mfv:1, efc:1, hlv:1, fs:1, hcr:1, ccr:1,
+  // fcs: First Service to Conception — higher is better per spec.
+  fcs:1,
   fatpct:1, propct:1, dce:-1, ssb:-1, dsb:-1,
   // gl: shorter gestation is generally preferred (easier calving, more days
   // open to recover), same lower-is-better convention as sce/dce/ssb/dsb.
@@ -742,6 +749,8 @@ const TRAITS = [
    desc:''},
   {key:'ccr', label:'Cow Conception Rate (CCR)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
    desc:''},
+  {key:'fcs', label:'First Service to Conception (FCS)', group:'Health and Fertility', subgroup:'Fertility', defPct:0, source:'added',
+   desc:''},
 
   {key:'hlv', label:'Heifer Livability (HLV)', group:'Health and Fertility', subgroup:'Livability', defPct:0, source:'added',
    desc:''},
@@ -815,6 +824,8 @@ const EXTRA_TRAITS = [
    desc:'True if the name carries a RED/RC suffix, the FertRecessive column says HHR, or the raw HHR allele-copy count is 1 or 2. Filtered via the checkbox below, not a range/genotype list. Not part of the scoring model.'},
   {key:'sirestack', label:'Sire Stack', group:'Recessives', kind:'text',
    desc:'The resolved pedigree sire stack, from the spreadsheet\'s "Sire Stack Final" column. Not part of the scoring model, and not filterable.'},
+  {key:'gfi', label:'Genomic Future Inbreeding (GFI)', group:'Recessives', suffix:'%',
+   desc:'From the spreadsheet\'s GEN_FUT_INB column. Higher values are worse (more inbreeding). Filtered via min/max range like any numeric trait. Not part of the scoring model.'},
 ];
 
 // Debounce the expensive part (re-scoring + re-sorting 27k+ bulls and
@@ -913,7 +924,7 @@ const PRESETS = {
   // uses the same flat weights as Balanced + NZ Milk Pricing (DPR, SCE, LIV, MAS, RFI, Hoof Health,
   // Milking Speed at 5 each); Udder and Feet only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
-  production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
     economics: { fatPrice:5.01, proPrice:0, milkPrice:0.122, unit:'lb' },
@@ -925,7 +936,7 @@ const PRESETS = {
   // (PL 19.2, SCS 5.1, DPR 3.2, HCR 0.8, CCR 2.7, LIV 8.9, EFC 1.6,
   // HLV 1.1, DSB 2.3, SCE 1.3, DCE 0.8, SSB 0.8, MFV 0.1, DAB 0.7,
   // KET 0.1, MAS 0.6, MET 0.4, RPL 0.3). Sums to exactly 100.
-  health:    {label:'Health + US CM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:3.2,gl:0,sce:1.3,liv:8.9,mas:0.6,rfi:8,fs:0,efc:1.6,dce:0.8,ssb:0.8,dsb:2.3,hcr:0.8,ccr:2.7,hlv:1.1,met:0.4,rpl:0.3,dab:0.7,ket:0.1,mfv:0.1,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:19.2,scs:5.1,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  health:    {label:'Health + US CM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:3.2,gl:0,sce:1.3,liv:8.9,mas:0.6,rfi:8,fs:0,efc:1.6,dce:0.8,ssb:0.8,dsb:2.3,hcr:0.8,ccr:2.7,fcs:0,hlv:1.1,met:0.4,rpl:0.3,dab:0.7,ket:0.1,mfv:0.1,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:19.2,scs:5.1,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
     economics: { fatPrice:5.01, proPrice:4.73, milkPrice:-0.02, unit:'lb' },
@@ -933,7 +944,7 @@ const PRESETS = {
 
   // Type + US NM Milk Pricing: no Production/Health weighting beyond the
   // Body and Efficiency group; Udder and Feet carries most of the weight.
-  type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
+  type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,fcs:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' },
@@ -945,7 +956,7 @@ const PRESETS = {
   // and every marketing company selected. Rump Angle, Stature, and Strength
   // use their one-directional scoring (reward sloped/penalize high pins;
   // reward short/penalize tall; penalize strong/reward frail).
-  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, cwMin:-1, bdMin:-1, studGroups:{select:true, abs:true, alta:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true, str:true },
     // Custom pricing, supplied as $6.38/kg fat, $6.38/kg protein,
@@ -1575,6 +1586,7 @@ const TRAIT_DECIMALS = {
   met:1, rpl:1, efc:1, hlv:1, fs:0, dce:1, ssb:1, dsb:1, hcr:1, ccr:1, trw:2,
   str:2, dfm:2, fta:2, rls:2, fua:2, udp:2, rlr:2, fls:2,
   fatpct:2, propct:2, dab:1, ket:1, mfv:1, gl:1,
+  fcs:1, gfi:1,
 };
 
 // ---------- Sidebar rendering ----------
@@ -1651,12 +1663,12 @@ function renderSidebar(){
     </div>
 
     <div class="panel">
-      <h2>Recessives</h2>
+      <h2>Sires and Recessives</h2>
       ${(() => { const expanded = expandedGroups['Recessives'] !== false; return `
       <button class="expander-btn" data-expandkey="Recessives">${expanded ? '▲ Hide filters & scales' : '▼ Show filters & scales'}</button>
       ${expanded ? `
       <div class="slider-row">
-        <label class="check"><input type="checkbox" id="f_a2" ${filters.a2Only?'checked':''}> A2A2 only</label>
+        <label class="check"><input type="checkbox" id="f_a2" ${filters.a2Only?'checked':''}> A2A2</label>
       </div>
       ${EXTRA_TRAITS.filter(t => t.group === 'Recessives' && t.kind === 'genotype').map(t => `
         <div class="slider-row">
@@ -1670,6 +1682,20 @@ function renderSidebar(){
             `).join('')}
           </div>
         </div>`).join('')}
+      ${(() => { const r = filters.ranges.gfi || {}; const hasRange = r.min != null || r.max != null; return `
+      <div class="slider-row">
+        <div class="top"><span class="name">Genomic Future Inbreeding (GFI)</span></div>
+        <div class="desc">Higher values are worse (more inbreeding). Not part of the scoring model.</div>
+        <div class="range-row">
+          <span class="range-label">Exclude outside range</span>
+          <div class="range-inputs">
+            <input type="number" step="any" class="range-min" data-rangekey="gfi" placeholder="min" value="${r.min ?? ''}">
+            <span>–</span>
+            <input type="number" step="any" class="range-max" data-rangekey="gfi" placeholder="max" value="${r.max ?? ''}">
+            ${hasRange ? `<button class="range-clear" data-rangekey="gfi" title="Clear this range">×</button>` : ''}
+          </div>
+        </div>
+      </div>`; })()}
       <label class="check" style="margin-top:10px;"><input type="checkbox" id="f_polled" ${filters.polledOnly?'checked':''}> Polled only</label>
       <label class="check"><input type="checkbox" id="f_red" ${filters.redOnly?'checked':''}> Red factor only</label>
       <label class="check" style="margin-top:10px;"><input type="checkbox" id="f_haplo" ${filters.excludeHaplotype?'checked':''}> Exclude genetic recessive carriers</label>
@@ -2110,6 +2136,7 @@ function exportShortlist(){
 // the ones checked by default), so nothing is hidden from the picker.
 const TOGGLEABLE_COLUMNS = [
   {key:'a2', label:'A2A2'},
+  {key:'gfi', label:'GFI', numeric:true, decimals:1},
   {key:'rel', label:'Rel%', numeric:true, decimals:0},
   {key:'nm', label:'NM$', numeric:true, decimals:0},
   {key:'gm', label:'GM$', numeric:true, decimals:0},
@@ -2122,6 +2149,7 @@ const TOGGLEABLE_COLUMNS = [
   {key:'dpr', label:'DPR', numeric:true, decimals:1},
   {key:'gl', label:'GL', numeric:true, decimals:1},
   {key:'sce', label:'SCE', numeric:true, decimals:1},
+  {key:'fcs', label:'FCS', numeric:true, decimals:1},
   {key:'liv', label:'LIV', numeric:true, decimals:1},
   {key:'mas', label:'MAS', numeric:true, decimals:1},
   {key:'pl', label:'PL', numeric:true, decimals:1},
@@ -2455,17 +2483,13 @@ function renderBullDetail(b){
   const CHART_TRAIT_ORDER = ['sta','dfm','str','trw','rpa','rls','rlr','fta','fls','fua','ruh','ruw','ucl','udp','ftp','rtp','tlg'];
   const chartTraits = CHART_TRAIT_ORDER.map(k => TRAITS.find(t => t.key === k)).filter(Boolean);
 
-  const statPanel = (title, traits, extraTraits=[], compact=true, stripCDNLabel=false) => `
-    <div class="panel">
-      <h2>${title}</h2>
-      <div class="detail-grid${compact ? ' compact-grid' : ''}">
-        ${traits.map(t => `
+  const statPanel = (title, traits, extraTraits=[], compact=true, stripCDNLabel=false, order=null) => {
+    const traitCell = t => `
           <div class="detail-stat${compact ? ' compact' : ''}">
             <span class="detail-stat-label">${t.key==='econprod' ? 'Production $' : stripCDNLabel ? t.label.replace(' -CDN', '') : t.label}</span>
             <span class="detail-stat-val">${t.key==='a2' ? (b.a2 || '—') : t.key==='econprod' ? fmt(economicProductionValue(b), TRAIT_DECIMALS[t.key] ?? 2) : fmt(b[t.key], TRAIT_DECIMALS[t.key] ?? 2) + (t.suffix && typeof b[t.key]==='number' ? t.suffix : '')}</span>
-          </div>
-        `).join('')}
-        ${extraTraits.map(t => `
+          </div>`;
+    const extraCell = t => `
           <div class="detail-stat${compact ? ' compact' : ''}">
             <span class="detail-stat-label">${t.label}</span>
             <span class="detail-stat-val">${
@@ -2473,10 +2497,27 @@ function renderBullDetail(b){
               : t.kind==='genotype' || t.kind==='text' ? (b[t.key] || '—')
               : fmt(b[t.key], TRAIT_DECIMALS[t.key] ?? 2) + (t.suffix && typeof b[t.key]==='number' ? t.suffix : '')
             }</span>
-          </div>
-        `).join('')}
+          </div>`;
+    // Default order: every TRAITS entry, then every EXTRA_TRAITS entry, in
+    // their declared array order (unchanged behavior for every panel that
+    // doesn't pass an explicit `order`). When `order` (a list of trait
+    // keys) is given, the combined cells are resorted to match it instead —
+    // used by "Sires and Recessives" below to put Sire Stack and GFI first.
+    let cells = [
+      ...traits.map(t => ({key:t.key, html:traitCell(t)})),
+      ...extraTraits.map(t => ({key:t.key, html:extraCell(t)})),
+    ];
+    if(order){
+      cells.sort((a,b2) => order.indexOf(a.key) - order.indexOf(b2.key));
+    }
+    return `
+    <div class="panel">
+      <h2>${title}</h2>
+      <div class="detail-grid${compact ? ' compact-grid' : ''}">
+        ${cells.map(c => c.html).join('')}
       </div>
     </div>`;
+  };
 
   // Health and Fertility groups its traits into Livability / Fertility /
   // Health / Efficiency sub-sections (similar to how Alta's bull page
@@ -2536,7 +2577,7 @@ function renderBullDetail(b){
         ? `<a class="detail-link-btn" href="${link.url}" target="_blank" rel="noopener">View on ${link.company} →</a>`
         : `<p class="foot-note">No direct sire-directory link is available for this bull's AI company.</p>`}
 
-      ${statPanel('Recessives', TRAITS.filter(t=>t.group==='Recessives'), EXTRA_TRAITS.filter(t=>t.group==='Recessives'))}
+      ${statPanel('Sires and Recessives', TRAITS.filter(t=>t.group==='Recessives'), EXTRA_TRAITS.filter(t=>t.group==='Recessives'), true, false, ['sirestack','gfi','a2','kappa','genrecessive','polled','red'])}
       ${statPanel('Production', TRAITS.filter(t=>t.group==='Production'), EXTRA_TRAITS.filter(t=>t.group==='Production'))}
       ${efficiencyPanel}
       ${healthEffPanel}
