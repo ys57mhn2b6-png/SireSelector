@@ -2608,6 +2608,14 @@ function route(){
       || (ADDITIONAL_BULLS && ADDITIONAL_BULLS.find(b => (b.naab || b.name) === id));
     if(bull){ renderBullDetail(bull); return; }
     if(!ADDITIONAL_BULLS){ ensureAdditionalBullsLoaded(); return; } // might be an extra bull; try loading, route() re-runs once ready
+    // Bull genuinely isn't in either file (e.g. dropped in a data refresh,
+    // or a stale/bad link) even after ADDITIONAL_BULLS finished loading —
+    // fall through to the list, but also clear the now-meaningless
+    // #bull/... hash so it can't sit there permanently disagreeing with
+    // what's on screen. history.replaceState avoids adding a junk history
+    // entry and (unlike location.hash='') doesn't re-trigger 'hashchange'
+    // and re-enter route() a second time.
+    history.replaceState(null, '', location.pathname + location.search);
   }
   document.getElementById('layout').classList.remove('detail-mode');
   render();
@@ -2675,12 +2683,34 @@ if ('serviceWorker' in navigator) {
   // this when an existing controller is being *replaced* — on a brand-new
   // first-ever visit there's no prior controller, and reloading then would
   // just be an unnecessary flicker rather than showing anyone anything new.
+  //
+  // Browsers check for service worker updates in the background, including
+  // on tabs that aren't currently focused — so 'controllerchange' can fire
+  // while this tab is sitting behind another window. Reloading immediately
+  // in that case yanks the page out from under the person the moment they
+  // switch back (losing scroll position, and previously could even strand
+  // them on a stale bull URL — see route()'s history.replaceState fix).
+  // Instead, defer the actual reload until the tab is visible again: if
+  // it's already visible, reload now same as before; if it's hidden,
+  // wait for 'visibilitychange' and reload the next time it becomes
+  // visible, so the update always lands at a moment the person can see it
+  // happen rather than silently behind their back.
   const hadController = !!navigator.serviceWorker.controller;
   let swUpdateReloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController || swUpdateReloaded) return;
     swUpdateReloaded = true;
-    window.location.reload();
+    const doReload = () => window.location.reload();
+    if (document.visibilityState === 'visible') {
+      doReload();
+    } else {
+      document.addEventListener('visibilitychange', function onVisible(){
+        if (document.visibilityState === 'visible') {
+          document.removeEventListener('visibilitychange', onVisible);
+          doReload();
+        }
+      });
+    }
   });
 }
 
