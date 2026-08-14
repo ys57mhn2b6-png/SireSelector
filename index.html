@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
 <title>Sires 4 U — Custom Bull Ranking Tool</title>
 
 <!-- PWA: installability -->
@@ -826,6 +827,24 @@ const EXTRA_TRAITS = [
    desc:'The resolved pedigree sire stack, from the spreadsheet\'s "Sire Stack Final" column. Not part of the scoring model, and not filterable.'},
   {key:'gfi', label:'Genomic Future Inbreeding (GFI)', group:'Recessives', suffix:'%',
    desc:'From the spreadsheet\'s GEN_FUT_INB column. Higher values are worse (more inbreeding). Filtered via min/max range like any numeric trait. Not part of the scoring model.'},
+  // Composite $ indices and TPI/HCC: these were already shown as reference
+  // info at the top of the bull detail page and as optional table columns,
+  // but had no filter support at all. Registering them here (group:
+  // 'Indices') gives them min/max range filters in the sidebar and correct
+  // labels in the "active filters" summary — same mechanism as GFI above.
+  // None of these feed into the weighted scoring model.
+  {key:'nm', label:'Net Merit $ (NM$)', group:'Indices',
+   desc:'USDA\'s overall lifetime economic merit index. Reference/filter only \u2014 not part of the scoring model unless reflected through the Production sliders.'},
+  {key:'gm', label:'Grazing Merit $ (GM$)', group:'Indices',
+   desc:'USDA economic index calibrated for pasture-based/grazing systems. Reference/filter only.'},
+  {key:'cm', label:'Cheese Merit $ (CM$)', group:'Indices',
+   desc:'USDA economic index calibrated for cheese-yield milk pricing. Reference/filter only.'},
+  {key:'fm', label:'Fluid Merit $ (FM$)', group:'Indices',
+   desc:'USDA economic index calibrated for fluid-milk pricing. Reference/filter only.'},
+  {key:'tpi', label:'Total Performance Index (TPI)', group:'Indices',
+   desc:'Holstein Association USA\'s composite index. Reference/filter only.'},
+  {key:'hcc', label:'Holstein Conformation Composite (HCC)', group:'Indices',
+   desc:'Holstein Association USA\'s composite conformation/type index. Only populated for the available-bulls list \u2014 always blank for bulls found only in the wider search. Reference/filter only.'},
 ];
 
 // Debounce the expensive part (re-scoring + re-sorting 27k+ bulls and
@@ -1586,7 +1605,7 @@ const TRAIT_DECIMALS = {
   met:1, rpl:1, efc:1, hlv:1, fs:0, dce:1, ssb:1, dsb:1, hcr:1, ccr:1, trw:2,
   str:2, dfm:2, fta:2, rls:2, fua:2, udp:2, rlr:2, fls:2,
   fatpct:2, propct:2, dab:1, ket:1, mfv:1, gl:1,
-  fcs:1, gfi:1,
+  fcs:1, gfi:1, hcc:2,
 };
 
 // ---------- Sidebar rendering ----------
@@ -1701,6 +1720,29 @@ function renderSidebar(){
       <label class="check" style="margin-top:10px;"><input type="checkbox" id="f_haplo" ${filters.excludeHaplotype?'checked':''}> Exclude genetic recessive carriers</label>
       <label class="check"><input type="checkbox" id="f_clones" ${filters.excludeClones?'checked':''}> Exclude clones (name ends in -ETN)</label>
       ` : ''}`; })()}
+    </div>
+
+    <div class="panel">
+      <h2>Indices</h2>
+      <p class="foot-note">Reference/filter only — these composite indices aren't part of the weighted scoring model above.</p>
+      ${EXTRA_TRAITS.filter(t => t.group === 'Indices').map(t => {
+        const r = filters.ranges[t.key] || {};
+        const hasRange = r.min != null || r.max != null;
+        return `
+      <div class="slider-row">
+        <div class="top"><span class="name">${t.label}</span></div>
+        <div class="desc">${t.desc}</div>
+        <div class="range-row">
+          <span class="range-label">Exclude outside range</span>
+          <div class="range-inputs">
+            <input type="number" step="any" class="range-min" data-rangekey="${t.key}" placeholder="min" value="${r.min ?? ''}">
+            <span>–</span>
+            <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
+            ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+      }).join('')}
     </div>
 
     ${groups.filter(g => g !== 'Recessives').map(g => {
@@ -2143,6 +2185,7 @@ const TOGGLEABLE_COLUMNS = [
   {key:'cm', label:'CM$', numeric:true, decimals:0},
   {key:'fm', label:'FM$', numeric:true, decimals:0},
   {key:'tpi', label:'TPI', numeric:true, decimals:0},
+  {key:'hcc', label:'HCC', numeric:true, decimals:2},
   {key:'fat', label:'Fat', numeric:true, decimals:0},
   {key:'pro', label:'Pro', numeric:true, decimals:0},
   {key:'milk', label:'Milk', numeric:true, decimals:0},
@@ -2347,7 +2390,7 @@ function getActiveFilterInfo(){
   for(const key in filters.ranges){
     const r = filters.ranges[key];
     if(r.min == null && r.max == null) continue;
-    const label = key === 'rel' ? 'Reliability' : (TRAITS.find(t => t.key === key)?.label || key);
+    const label = key === 'rel' ? 'Reliability' : (TRAITS.find(t => t.key === key)?.label || EXTRA_TRAITS.find(t => t.key === key)?.label || key);
     let desc;
     if(r.min != null && r.max != null) desc = `${label}: ${r.min}\u2013${r.max}`;
     else if(r.min != null) desc = `${label}: \u2265 ${r.min}`;
@@ -2571,6 +2614,7 @@ function renderBullDetail(b){
         <span>CM$: <b>${fmt(b.cm,0)}</b></span>
         <span>FM$: <b>${fmt(b.fm,0)}</b></span>
         <span>TPI: <b>${fmt(b.tpi,0)}</b></span>
+        <span>HCC: <b>${fmt(b.hcc,2)}</b></span>
         ${b.haplotype_carrier ? `<span class="tag warn">Genetic recessive carrier</span>` : ''}
       </div>
       ${link
