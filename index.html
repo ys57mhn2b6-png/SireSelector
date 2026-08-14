@@ -553,7 +553,13 @@ const AVG = {
   // other trait. Positive is better per spec.
   fcs:5.4784,
   // gl: computed from the same reference population like every other trait.
-  gl:-0.5231
+  gl:-0.5231,
+  // nm/gm/cm/fm/tpi: same reference population, standard AVG.
+  nm:597.5895, gm:609.1728, cm:621.1235, fm:544.0802, tpi:3081.7994,
+  // hcc: same reference population, but 31 of the 324 reference bulls have
+  // no HCC value (same "only populated for available bulls" gap as the
+  // wider population) — excluded from this average rather than treated as 0.
+  hcc:0.7152
 };
 
 // Mean absolute deviation of each trait from AVG, computed from the same
@@ -599,6 +605,8 @@ const MAD = {
   fcs:3.9012,
   // gl: standard MAD from AVG, same reference population as every other trait.
   gl:1.1013,
+  // nm/gm/cm/fm/tpi/hcc: same reference population, standard MAD from AVG.
+  nm:169.7488, gm:172.7731, cm:173.3659, fm:166.6279, tpi:123.5204, hcc:0.7110,
 };
 
 // Calibration constant, chosen so the default percentages reproduce
@@ -678,6 +686,8 @@ const SIGN = {
   // gl: shorter gestation is generally preferred (easier calving, more days
   // open to recover), same lower-is-better convention as sce/dce/ssb/dsb.
   gl:-1,
+  // nm/gm/cm/fm/tpi/hcc: all higher-is-better composite indices.
+  nm:1, gm:1, cm:1, fm:1, tpi:1, hcc:1,
   // ftp/rtp/ucl/rls are deviation traits (see TRAITS below): SIGN here just
   // means "more deviation = -1 direction", i.e. always subtracts from the
   // score as |value| grows, regardless of which way the value points.
@@ -807,6 +817,27 @@ const TRAITS = [
 
   {key:'a2', label:'Beta Casein', group:'Recessives', defPct:0, source:'derived',
    desc:'Rewards A2A2 and penalizes A1A1.'},
+
+  // Composite $ indices and TPI/HCC: previously only shown as reference info
+  // at the top of the bull detail page and as optional table columns, with
+  // no way to weight them into the score. Now scored like any other added
+  // trait (defPct:0 so nothing changes for existing users until they choose
+  // to move a slider). HCC is null for bulls found only in the wider
+  // search (see bulls_additional.json) — computeScore already skips any
+  // trait whose value isn't a number, so those bulls just get 0 contribution
+  // from HCC rather than an error or a penalty.
+  {key:'nm', label:'Net Merit $ (NM$)', group:'Indices', defPct:0, source:'added',
+   desc:'USDA\'s overall lifetime economic merit index.'},
+  {key:'gm', label:'Grazing Merit $ (GM$)', group:'Indices', defPct:0, source:'added',
+   desc:'USDA economic index calibrated for pasture-based/grazing systems.'},
+  {key:'cm', label:'Cheese Merit $ (CM$)', group:'Indices', defPct:0, source:'added',
+   desc:'USDA economic index calibrated for cheese-yield milk pricing.'},
+  {key:'fm', label:'Fluid Merit $ (FM$)', group:'Indices', defPct:0, source:'added',
+   desc:'USDA economic index calibrated for fluid-milk pricing.'},
+  {key:'tpi', label:'Total Performance Index (TPI)', group:'Indices', defPct:0, source:'added',
+   desc:'Holstein Association USA\'s composite index.'},
+  {key:'hcc', label:'Holstein Conformation Composite (HCC)', group:'Indices', defPct:0, source:'added',
+   desc:'Holstein Association USA\'s composite conformation/type index. Only populated for the available-bulls list \u2014 always blank for bulls found only in the wider search, which contribute 0 to the score from this trait.'},
 ];
 
 // Traits that show up on the bull detail page and get a range/genotype
@@ -827,24 +858,6 @@ const EXTRA_TRAITS = [
    desc:'The resolved pedigree sire stack, from the spreadsheet\'s "Sire Stack Final" column. Not part of the scoring model, and not filterable.'},
   {key:'gfi', label:'Genomic Future Inbreeding (GFI)', group:'Recessives', suffix:'%',
    desc:'From the spreadsheet\'s GEN_FUT_INB column. Higher values are worse (more inbreeding). Filtered via min/max range like any numeric trait. Not part of the scoring model.'},
-  // Composite $ indices and TPI/HCC: these were already shown as reference
-  // info at the top of the bull detail page and as optional table columns,
-  // but had no filter support at all. Registering them here (group:
-  // 'Indices') gives them min/max range filters in the sidebar and correct
-  // labels in the "active filters" summary — same mechanism as GFI above.
-  // None of these feed into the weighted scoring model.
-  {key:'nm', label:'Net Merit $ (NM$)', group:'Indices',
-   desc:'USDA\'s overall lifetime economic merit index. Reference/filter only \u2014 not part of the scoring model unless reflected through the Production sliders.'},
-  {key:'gm', label:'Grazing Merit $ (GM$)', group:'Indices',
-   desc:'USDA economic index calibrated for pasture-based/grazing systems. Reference/filter only.'},
-  {key:'cm', label:'Cheese Merit $ (CM$)', group:'Indices',
-   desc:'USDA economic index calibrated for cheese-yield milk pricing. Reference/filter only.'},
-  {key:'fm', label:'Fluid Merit $ (FM$)', group:'Indices',
-   desc:'USDA economic index calibrated for fluid-milk pricing. Reference/filter only.'},
-  {key:'tpi', label:'Total Performance Index (TPI)', group:'Indices',
-   desc:'Holstein Association USA\'s composite index. Reference/filter only.'},
-  {key:'hcc', label:'Holstein Conformation Composite (HCC)', group:'Indices',
-   desc:'Holstein Association USA\'s composite conformation/type index. Only populated for the available-bulls list \u2014 always blank for bulls found only in the wider search. Reference/filter only.'},
 ];
 
 // Debounce the expensive part (re-scoring + re-sorting 27k+ bulls and
@@ -943,7 +956,7 @@ const PRESETS = {
   // uses the same flat weights as Balanced + NZ Milk Pricing (DPR, SCE, LIV, MAS, RFI, Hoof Health,
   // Milking Speed at 5 each); Udder and Feet only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
-  production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
     economics: { fatPrice:5.01, proPrice:0, milkPrice:0.122, unit:'lb' },
@@ -955,7 +968,7 @@ const PRESETS = {
   // (PL 19.2, SCS 5.1, DPR 3.2, HCR 0.8, CCR 2.7, LIV 8.9, EFC 1.6,
   // HLV 1.1, DSB 2.3, SCE 1.3, DCE 0.8, SSB 0.8, MFV 0.1, DAB 0.7,
   // KET 0.1, MAS 0.6, MET 0.4, RPL 0.3). Sums to exactly 100.
-  health:    {label:'Health + US CM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:3.2,gl:0,sce:1.3,liv:8.9,mas:0.6,rfi:8,fs:0,efc:1.6,dce:0.8,ssb:0.8,dsb:2.3,hcr:0.8,ccr:2.7,fcs:0,hlv:1.1,met:0.4,rpl:0.3,dab:0.7,ket:0.1,mfv:0.1,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:19.2,scs:5.1,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  health:    {label:'Health + US CM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:3.2,gl:0,sce:1.3,liv:8.9,mas:0.6,rfi:8,fs:0,efc:1.6,dce:0.8,ssb:0.8,dsb:2.3,hcr:0.8,ccr:2.7,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,hlv:1.1,met:0.4,rpl:0.3,dab:0.7,ket:0.1,mfv:0.1,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:19.2,scs:5.1,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
     economics: { fatPrice:5.01, proPrice:4.73, milkPrice:-0.02, unit:'lb' },
@@ -963,7 +976,7 @@ const PRESETS = {
 
   // Type + US NM Milk Pricing: no Production/Health weighting beyond the
   // Body and Efficiency group; Udder and Feet carries most of the weight.
-  type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,fcs:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
+  type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' },
@@ -975,7 +988,7 @@ const PRESETS = {
   // and every marketing company selected. Rump Angle, Stature, and Strength
   // use their one-directional scoring (reward sloped/penalize high pins;
   // reward short/penalize tall; penalize strong/reward frail).
-  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, cwMin:-1, bdMin:-1, studGroups:{select:true, abs:true, alta:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true, str:true },
     // Custom pricing, supplied as $6.38/kg fat, $6.38/kg protein,
@@ -1720,29 +1733,6 @@ function renderSidebar(){
       <label class="check" style="margin-top:10px;"><input type="checkbox" id="f_haplo" ${filters.excludeHaplotype?'checked':''}> Exclude genetic recessive carriers</label>
       <label class="check"><input type="checkbox" id="f_clones" ${filters.excludeClones?'checked':''}> Exclude clones (name ends in -ETN)</label>
       ` : ''}`; })()}
-    </div>
-
-    <div class="panel">
-      <h2>Indices</h2>
-      <p class="foot-note">Reference/filter only — these composite indices aren't part of the weighted scoring model above.</p>
-      ${EXTRA_TRAITS.filter(t => t.group === 'Indices').map(t => {
-        const r = filters.ranges[t.key] || {};
-        const hasRange = r.min != null || r.max != null;
-        return `
-      <div class="slider-row">
-        <div class="top"><span class="name">${t.label}</span></div>
-        <div class="desc">${t.desc}</div>
-        <div class="range-row">
-          <span class="range-label">Exclude outside range</span>
-          <div class="range-inputs">
-            <input type="number" step="any" class="range-min" data-rangekey="${t.key}" placeholder="min" value="${r.min ?? ''}">
-            <span>–</span>
-            <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
-            ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
-          </div>
-        </div>
-      </div>`;
-      }).join('')}
     </div>
 
     ${groups.filter(g => g !== 'Recessives').map(g => {
