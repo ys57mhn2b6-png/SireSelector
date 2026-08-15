@@ -559,7 +559,11 @@ const AVG = {
   // hcc: same reference population, but 31 of the 324 reference bulls have
   // no HCC value (same "only populated for available bulls" gap as the
   // wider population) — excluded from this average rather than treated as 0.
-  hcc:0.7152
+  hcc:0.7152,
+  // bde: standard AVG from the same reference population, used only when
+  // the one-directional toggle is checked (default symmetric mode ignores
+  // AVG entirely and scores from 0 — see DEV_MAD.bde below).
+  bde:-0.0835
 };
 
 // Mean absolute deviation of each trait from AVG, computed from the same
@@ -578,7 +582,7 @@ const MAD = {
   // +1/-1/0 indicator (A2A2=+1, A1A1=-1, else 0) across the reference
   // population (178 A2A2, 17 A1A1), so it slots into the same
   // weight = SIGN * (pct/100 * K) / MAD formula as every other trait.
-  a2:0.6019,
+  a2:0.6173,
   // ruh/ruw: standard traits, MAD is the usual mean(|trait - AVG|).
   ruh:0.7526, ruw:0.7316,
   // ftp/rtp/ucl/rls: these have a fixed optimum of 0 (deviation in either
@@ -607,6 +611,9 @@ const MAD = {
   gl:1.1013,
   // nm/gm/cm/fm/tpi/hcc: same reference population, standard MAD from AVG.
   nm:169.7488, gm:172.7731, cm:173.3659, fm:166.6279, tpi:123.5204, hcc:0.7110,
+  // bde: standard MAD from AVG, same reference population — used only when
+  // the one-directional toggle is checked.
+  bde:0.6395,
 };
 
 // Calibration constant, chosen so the default percentages reproduce
@@ -620,8 +627,8 @@ const K = 201.7223;
 // sta, rpa, udp, and tlg are toggleable today; ftp/rtp/ucl/rls are
 // permanently deviation traits and already use this style via their
 // entries in MAD above (not here).
-const DEV_MAD = { sta:0.7678, rpa:0.8585, udp:0.8207, tlg:0.6541, str:0.6452 };
-const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true };
+const DEV_MAD = { sta:0.7678, rpa:0.8585, udp:0.8207, tlg:0.6541, str:0.6452, bde:0.6475, trw:0.7819 };
+const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true, bde:true, trw:true };
 
 // Default is the original one-directional setup for sta, rpa, udp, and tlg:
 // reward short/penalize tall for
@@ -674,6 +681,10 @@ const SIGN = {
   // reward frail" per its toggleLabel, so SIGN is -1, not the usual +1
   // "higher is better" convention most other linear traits use here.
   str:-1,
+  // bde: one-directional mode (checkbox checked) means "penalize deep,
+  // reward shallow" per its toggleLabel, so SIGN is -1, same convention
+  // as str above.
+  bde:-1,
   // Newly-scored traits. met/rpl/dab/ket/mfv (health-event resistance),
   // efc/hlv/hcr/ccr (fertility/livability), fs (feed saved), and
   // fatpct/propct (component %) are all higher-is-better. dce/ssb/dsb
@@ -721,6 +732,9 @@ const TRAITS = [
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'str', label:'Strength (STR)', group:'Body and Efficiency', defPct:0, source:'added',
    toggleLabel:'Penalize strong, reward frail',
+   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'bde', label:'Body Depth (BDE)', group:'Body and Efficiency', defPct:0, source:'added',
+   toggleLabel:'Penalize deep, reward shallow',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'cw', label:'Chest Width -CDN (CW)', group:'Body and Efficiency', defPct:7.18, source:'core',
    desc:''},
@@ -787,7 +801,8 @@ const TRAITS = [
    toggleLabel:'Reward sloped, penalize high pins',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'trw', label:'Thurl Width (TRW)', group:'Body and Efficiency', defPct:0, source:'added',
-   desc:''},
+   toggleLabel:'Reward wide, penalize narrow',
+   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'rls', label:'Rear Legs-Side (RLS)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
    desc:'0 is optimum and any deviation is penalized.'},
   {key:'rlr', label:'Rear Legs-Rear (RLR)', group:'Udder and Feet', defPct:0, source:'added',
@@ -827,17 +842,17 @@ const TRAITS = [
   // trait whose value isn't a number, so those bulls just get 0 contribution
   // from HCC rather than an error or a penalty.
   {key:'nm', label:'Net Merit $ (NM$)', group:'Indices', defPct:0, source:'added',
-   desc:'USDA\'s overall lifetime economic merit index.'},
+   desc:''},
   {key:'gm', label:'Grazing Merit $ (GM$)', group:'Indices', defPct:0, source:'added',
-   desc:'USDA economic index calibrated for pasture-based/grazing systems.'},
+   desc:''},
   {key:'cm', label:'Cheese Merit $ (CM$)', group:'Indices', defPct:0, source:'added',
-   desc:'USDA economic index calibrated for cheese-yield milk pricing.'},
+   desc:''},
   {key:'fm', label:'Fluid Merit $ (FM$)', group:'Indices', defPct:0, source:'added',
-   desc:'USDA economic index calibrated for fluid-milk pricing.'},
+   desc:''},
   {key:'tpi', label:'Total Performance Index (TPI)', group:'Indices', defPct:0, source:'added',
-   desc:'Holstein Association USA\'s composite index.'},
+   desc:''},
   {key:'hcc', label:'Holstein Conformation Composite (HCC)', group:'Indices', defPct:0, source:'added',
-   desc:'Holstein Association USA\'s composite conformation/type index. Only populated for the available-bulls list \u2014 always blank for bulls found only in the wider search, which contribute 0 to the score from this trait.'},
+   desc:''},
 ];
 
 // Traits that show up on the bull detail page and get a range/genotype
@@ -956,7 +971,7 @@ const PRESETS = {
   // uses the same flat weights as Balanced + NZ Milk Pricing (DPR, SCE, LIV, MAS, RFI, Hoof Health,
   // Milking Speed at 5 each); Udder and Feet only weights Stature and
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
-  production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
     economics: { fatPrice:5.01, proPrice:0, milkPrice:0.122, unit:'lb' },
@@ -968,7 +983,7 @@ const PRESETS = {
   // (PL 19.2, SCS 5.1, DPR 3.2, HCR 0.8, CCR 2.7, LIV 8.9, EFC 1.6,
   // HLV 1.1, DSB 2.3, SCE 1.3, DCE 0.8, SSB 0.8, MFV 0.1, DAB 0.7,
   // KET 0.1, MAS 0.6, MET 0.4, RPL 0.3). Sums to exactly 100.
-  health:    {label:'Health + US CM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:3.2,gl:0,sce:1.3,liv:8.9,mas:0.6,rfi:8,fs:0,efc:1.6,dce:0.8,ssb:0.8,dsb:2.3,hcr:0.8,ccr:2.7,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,hlv:1.1,met:0.4,rpl:0.3,dab:0.7,ket:0.1,mfv:0.1,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:19.2,scs:5.1,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  health:    {label:'Health + US CM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:3.2,gl:0,sce:1.3,liv:8.9,mas:0.6,rfi:8,fs:0,efc:1.6,dce:0.8,ssb:0.8,dsb:2.3,hcr:0.8,ccr:2.7,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:1.1,met:0.4,rpl:0.3,dab:0.7,ket:0.1,mfv:0.1,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:19.2,scs:5.1,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:true, sta:true, str:true },
     economics: { fatPrice:5.01, proPrice:4.73, milkPrice:-0.02, unit:'lb' },
@@ -976,7 +991,7 @@ const PRESETS = {
 
   // Type + US NM Milk Pricing: no Production/Health weighting beyond the
   // Body and Efficiency group; Udder and Feet carries most of the weight.
-  type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
+  type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
     direction: { rpa:false, sta:false },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' },
@@ -988,7 +1003,7 @@ const PRESETS = {
   // and every marketing company selected. Rump Angle, Stature, and Strength
   // use their one-directional scoring (reward sloped/penalize high pins;
   // reward short/penalize tall; penalize strong/reward frail).
-  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, cwMin:-1, bdMin:-1, studGroups:{select:true, abs:true, alta:true, semex:true, stg:true} },
     direction: { rpa:true, sta:true, str:true },
     // Custom pricing, supplied as $6.38/kg fat, $6.38/kg protein,
@@ -1070,7 +1085,7 @@ let filters = {a2Only:false, excludeHaplotype:true, excludeClones:true, ranges:{
 // Health and Fertility and Udder and Feet have the most sliders/filters
 // of any groups, so their bodies start collapsed behind an expander to keep
 // the sidebar manageable on first load; Production stays always expanded.
-let expandedGroups = { 'Health and Fertility': false, 'Udder and Feet': false, 'Production': false, 'Body and Efficiency': false, 'Recessives': false };
+let expandedGroups = { 'Health and Fertility': false, 'Udder and Feet': false, 'Production': false, 'Body and Efficiency': false, 'Recessives': false, 'Indices': false };
 let shortlist = new Set();
 
 // ---- Auth / subscription state ----
@@ -1618,7 +1633,7 @@ const TRAIT_DECIMALS = {
   met:1, rpl:1, efc:1, hlv:1, fs:0, dce:1, ssb:1, dsb:1, hcr:1, ccr:1, trw:2,
   str:2, dfm:2, fta:2, rls:2, fua:2, udp:2, rlr:2, fls:2,
   fatpct:2, propct:2, dab:1, ket:1, mfv:1, gl:1,
-  fcs:1, gfi:1, hcc:2,
+  fcs:1, gfi:1, hcc:2, bde:2,
 };
 
 // ---------- Sidebar rendering ----------
@@ -1627,6 +1642,82 @@ function renderSidebar(){
   const el = document.getElementById('sidebar');
   const pctTotal = Object.values(pcts).reduce((a,b)=>a+b, 0);
   const { count: activeFilterCount, descriptions: activeFilterDescriptions } = getActiveFilterInfo();
+
+  // Hoisted so both the generic per-group loop below AND the standalone
+  // Indices panel (rendered separately, above Sires and Recessives) can
+  // share the exact same row markup — neither depends on which group's
+  // closure it's called from, only on the trait `t` itself.
+  const renderScoredRow = t => {
+    const r = filters.ranges[t.key] || {};
+    const hasRange = r.min != null || r.max != null;
+    const toggleable = TOGGLEABLE_DEVIATION[t.key];
+    const signToggleable = SIGN_TOGGLEABLE[t.key];
+    return `
+        <div class="slider-row">
+          <div class="top"><span class="name">${t.label}</span><input type="number" class="pct-input" id="val_${t.key}" data-key="${t.key}" min="0" max="100" step="0.1" value="${(pcts[t.key] ?? 0).toFixed(1)}"></div>
+          ${t.desc ? `<div class="desc">${t.desc}</div>` : ''}
+          ${toggleable ? `
+          <label class="check direction-toggle">
+            <input type="checkbox" data-directionkey="${t.key}" ${useOriginalDirection[t.key]?'checked':''}>
+            ${t.toggleLabel}
+          </label>` : ''}
+          ${signToggleable ? `
+          <label class="check direction-toggle">
+            <input type="checkbox" data-signkey="${t.key}" ${positiveDirection[t.key]?'checked':''}>
+            ${t.signToggleLabel}
+          </label>` : ''}
+          <input type="range" data-key="${t.key}" min="0" max="100" step="0.1" value="${pcts[t.key] ?? 0}">
+          ${t.noRange ? '' : `
+          <div class="range-row">
+            <span class="range-label">Exclude outside range</span>
+            <div class="range-inputs">
+              <input type="number" step="any" class="range-min" data-rangekey="${t.key}" placeholder="min" value="${r.min ?? ''}">
+              <span>–</span>
+              <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
+              ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
+            </div>
+          </div>`}
+        </div>`;
+  };
+  const renderExtraRow = t => {
+    if(t.kind === 'genotype'){
+      return `
+          <div class="slider-row">
+            <div class="top"><span class="name">${t.label}</span></div>
+            <div class="desc">${t.desc}</div>
+            <div class="genotype-checks">
+              ${t.genotypes.map(gt => `
+                <label class="check genotype-check">
+                  <input type="checkbox" data-genotrait="${t.key}" data-genoval="${gt}" ${filters.genotypeFilters[t.key]?.[gt] ? 'checked' : ''}> ${gt}
+                </label>
+              `).join('')}
+            </div>
+          </div>`;
+    }
+    const r = filters.ranges[t.key] || {};
+    const hasRange = r.min != null || r.max != null;
+    return `
+        <div class="slider-row">
+          <div class="top"><span class="name">${t.label}</span></div>
+          <div class="desc">${t.desc}</div>
+          <div class="range-row">
+            <span class="range-label">Exclude outside range</span>
+            <div class="range-inputs">
+              <input type="number" step="any" class="range-min" data-rangekey="${t.key}" placeholder="min" value="${r.min ?? ''}">
+              <span>–</span>
+              <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
+              ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
+            </div>
+          </div>
+        </div>`;
+  };
+  // Indices panel body, built once here so it can be placed above Sires
+  // and Recessives (below) while the rest of the scored groups still
+  // render via the generic loop further down.
+  const indicesExpanded = expandedGroups['Indices'] !== false;
+  const indicesBodyHtml = TRAITS.filter(t=>t.group==='Indices').map(renderScoredRow).join('')
+    + EXTRA_TRAITS.filter(t=>t.group==='Indices').map(renderExtraRow).join('');
+
   el.innerHTML = `
     <div class="panel">
       <h2>Presets</h2>
@@ -1695,6 +1786,12 @@ function renderSidebar(){
     </div>
 
     <div class="panel">
+      <h2>Indices</h2>
+      <button class="expander-btn" data-expandkey="Indices">${indicesExpanded ? '▲ Hide filters & scales' : '▼ Show filters & scales'}</button>
+      ${indicesExpanded ? indicesBodyHtml : ''}
+    </div>
+
+    <div class="panel">
       <h2>Sires and Recessives</h2>
       ${(() => { const expanded = expandedGroups['Recessives'] !== false; return `
       <button class="expander-btn" data-expandkey="Recessives">${expanded ? '▲ Hide filters & scales' : '▼ Show filters & scales'}</button>
@@ -1735,74 +1832,9 @@ function renderSidebar(){
       ` : ''}`; })()}
     </div>
 
-    ${groups.filter(g => g !== 'Recessives').map(g => {
+    ${groups.filter(g => g !== 'Recessives' && g !== 'Indices').map(g => {
       const isCollapsible = g === 'Health and Fertility' || g === 'Udder and Feet' || g === 'Production' || g === 'Body and Efficiency';
       const expanded = expandedGroups[g] !== false; // undefined/true = expanded; listed groups start false
-
-      const renderScoredRow = t => {
-        const r = filters.ranges[t.key] || {};
-        const hasRange = r.min != null || r.max != null;
-        const toggleable = TOGGLEABLE_DEVIATION[t.key];
-        const signToggleable = SIGN_TOGGLEABLE[t.key];
-        return `
-        <div class="slider-row">
-          <div class="top"><span class="name">${t.label}</span><input type="number" class="pct-input" id="val_${t.key}" data-key="${t.key}" min="0" max="100" step="0.1" value="${(pcts[t.key] ?? 0).toFixed(1)}"></div>
-          <div class="desc">${t.desc}</div>
-          ${toggleable ? `
-          <label class="check direction-toggle">
-            <input type="checkbox" data-directionkey="${t.key}" ${useOriginalDirection[t.key]?'checked':''}>
-            ${t.toggleLabel}
-          </label>` : ''}
-          ${signToggleable ? `
-          <label class="check direction-toggle">
-            <input type="checkbox" data-signkey="${t.key}" ${positiveDirection[t.key]?'checked':''}>
-            ${t.signToggleLabel}
-          </label>` : ''}
-          <input type="range" data-key="${t.key}" min="0" max="100" step="0.1" value="${pcts[t.key] ?? 0}">
-          ${t.noRange ? '' : `
-          <div class="range-row">
-            <span class="range-label">Exclude outside range</span>
-            <div class="range-inputs">
-              <input type="number" step="any" class="range-min" data-rangekey="${t.key}" placeholder="min" value="${r.min ?? ''}">
-              <span>–</span>
-              <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
-              ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
-            </div>
-          </div>`}
-        </div>`;
-      };
-      const renderExtraRow = t => {
-        if(t.kind === 'genotype'){
-          return `
-          <div class="slider-row">
-            <div class="top"><span class="name">${t.label}</span></div>
-            <div class="desc">${t.desc}</div>
-            <div class="genotype-checks">
-              ${t.genotypes.map(gt => `
-                <label class="check genotype-check">
-                  <input type="checkbox" data-genotrait="${t.key}" data-genoval="${gt}" ${filters.genotypeFilters[t.key]?.[gt] ? 'checked' : ''}> ${gt}
-                </label>
-              `).join('')}
-            </div>
-          </div>`;
-        }
-        const r = filters.ranges[t.key] || {};
-        const hasRange = r.min != null || r.max != null;
-        return `
-        <div class="slider-row">
-          <div class="top"><span class="name">${t.label}</span></div>
-          <div class="desc">${t.desc}</div>
-          <div class="range-row">
-            <span class="range-label">Exclude outside range</span>
-            <div class="range-inputs">
-              <input type="number" step="any" class="range-min" data-rangekey="${t.key}" placeholder="min" value="${r.min ?? ''}">
-              <span>–</span>
-              <input type="number" step="any" class="range-max" data-rangekey="${t.key}" placeholder="max" value="${r.max ?? ''}">
-              ${hasRange ? `<button class="range-clear" data-rangekey="${t.key}" title="Clear this range">×</button>` : ''}
-            </div>
-          </div>
-        </div>`;
-      };
 
       let bodyHtml;
       if(g === 'Health and Fertility'){
@@ -2197,6 +2229,7 @@ const TOGGLEABLE_COLUMNS = [
   // rather than at the end, matching the sidebar order.
   {key:'sta', label:'STA', numeric:true, decimals:2},
   {key:'str', label:'STR', numeric:true, decimals:2},
+  {key:'bde', label:'BDE', numeric:true, decimals:2},
   {key:'cw', label:'CW', numeric:true, decimals:0},
   {key:'bd', label:'BD', numeric:true, decimals:0},
   {key:'dfm', label:'DFM', numeric:true, decimals:2},
@@ -2457,7 +2490,7 @@ const TYPE_BAR_LABELS = {
   fua:['Loose','Strong'], ruh:['Low','High'], ruw:['Narrow','Wide'],
   ucl:['Weak','Strong'], ftp:['Wide','Close'],
   rtp:['Wide','Close'], tlg:['Short','Long'],
-  udp:['Deep','Shallow'], fta:['Low','Steep'],
+  udp:['Deep','Shallow'], fta:['Low','Steep'], bde:['Shallow','Deep'],
 };
 
 // Horizontal deviation bar per type trait, similar to the bar-per-trait
@@ -2513,7 +2546,7 @@ function renderBullDetail(b){
   // Explicit display order for the Type chart, rather than following
   // TRAITS array/group order: STA, DFM, STR, TRW, RPA, then RLS, RLR, FTA,
   // FLS, then FU, RUH, RUW, UC, UDP, FTP, RTP, TL.
-  const CHART_TRAIT_ORDER = ['sta','dfm','str','trw','rpa','rls','rlr','fta','fls','fua','ruh','ruw','ucl','udp','ftp','rtp','tlg'];
+  const CHART_TRAIT_ORDER = ['sta','dfm','str','bde','trw','rpa','rls','rlr','fta','fls','fua','ruh','ruw','ucl','udp','ftp','rtp','tlg'];
   const chartTraits = CHART_TRAIT_ORDER.map(k => TRAITS.find(t => t.key === k)).filter(Boolean);
 
   const statPanel = (title, traits, extraTraits=[], compact=true, stripCDNLabel=false, order=null) => {
