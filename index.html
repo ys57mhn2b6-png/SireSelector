@@ -563,7 +563,11 @@ const AVG = {
   // bde: standard AVG from the same reference population, used only when
   // the one-directional toggle is checked (default symmetric mode ignores
   // AVG entirely and scores from 0 — see DEV_MAD.bde below).
-  bde:-0.0835
+  bde:-0.0835,
+  // ucl: standard AVG from the same reference population, used only when
+  // the one-directional toggle is checked (default symmetric mode scores
+  // from optimum 1 instead — see DEV_MAD.ucl below).
+  ucl:0.2420
 };
 
 // Mean absolute deviation of each trait from AVG, computed from the same
@@ -585,12 +589,17 @@ const MAD = {
   a2:0.6235,
   // ruh/ruw: standard traits, MAD is the usual mean(|trait - AVG|).
   ruh:0.7526, ruw:0.7316,
-  // ftp/rtp/ucl/rls: these have a fixed optimum of 0 (deviation in either
-  // direction is penalized — see the deviation:true traits below), so their
-  // MAD is mean(|trait - 0|) instead of mean(|trait - AVG|), computed from
-  // the same reference population. This keeps them on the same weight-share
-  // footing as every other trait despite not being centered on the average.
-  ftp:0.6211, rtp:0.7428, ucl:0.6298, rls:0.7986,
+  // ucl: now a standard trait like any other for its MAD/AVG (toggled
+  // one-directional mode) — its default symmetric-mode deviation MAD lives
+  // in DEV_MAD.ucl instead, now that it's toggleable.
+  ucl:0.6174,
+  // ftp/rtp/rls: these have a fixed non-zero optimum (deviation in either
+  // direction from that target is penalized — see the deviation:true
+  // traits below), so their MAD is mean(|trait - optimum|) instead of
+  // mean(|trait - AVG|), computed from the same reference population. This
+  // keeps them on the same weight-share footing as every other trait
+  // despite not being centered on the average.
+  ftp:0.5565, rtp:2.4231, rls:1.0321,
   // msprating: CDN-style rating trait like hhrating/cw/bd — standard MAD from AVG.
   msprating:2.9760,
   // bcs: Body Condition Score -CDN rating, standard MAD from AVG, same
@@ -627,8 +636,12 @@ const K = 201.7223;
 // sta, rpa, udp, and tlg are toggleable today; ftp/rtp/ucl/rls are
 // permanently deviation traits and already use this style via their
 // entries in MAD above (not here).
-const DEV_MAD = { sta:0.7678, rpa:0.8585, udp:0.8207, tlg:0.6541, str:0.6452, bde:0.6475, trw:0.7819 };
-const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true, bde:true, trw:true };
+// DEV_MAD values are mean(|trait - optimum|) from the reference population,
+// where optimum is each trait's own optimum field (0 when not set). sta and
+// str keep optimum 0; rpa=1, udp=0.5, tlg=1.5, trw=0.5, bde=0, ucl=1 — see
+// each trait's `optimum` field in TRAITS above for the authoritative value.
+const DEV_MAD = { sta:0.7678, rpa:1.0951, udp:0.7186, tlg:1.8343, str:0.6452, bde:0.6475, trw:0.6933, ucl:0.9226 };
+const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true, bde:true, trw:true, ucl:true };
 
 // Default is the original one-directional setup for sta, rpa, udp, and tlg:
 // reward short/penalize tall for
@@ -677,14 +690,17 @@ const SIGN = {
   // get the zero-optimum deviation treatment), so treat their weighting as
   // a rough linear proxy, not a precise curvilinear-optimum score.
   dfm:1, fta:1, fua:1, udp:1, rlr:1, fls:1,
-  // str: one-directional mode (checkbox checked) means "penalize strong,
-  // reward frail" per its toggleLabel, so SIGN is -1, not the usual +1
-  // "higher is better" convention most other linear traits use here.
-  str:-1,
-  // bde: one-directional mode (checkbox checked) means "penalize deep,
-  // reward shallow" per its toggleLabel, so SIGN is -1, same convention
+  // str: one-directional mode (checkbox checked) means "reward strong,
+  // penalize frail" per its toggleLabel, so SIGN is +1, same "higher is
+  // better" convention as the other linear traits above.
+  str:1,
+  // bde: one-directional mode (checkbox checked) means "reward deep,
+  // penalize shallow" per its toggleLabel, so SIGN is +1, same convention
   // as str above.
-  bde:-1,
+  bde:1,
+  // ucl: one-directional mode (checkbox checked) means "reward shallow
+  // (positive), penalize deep" per its toggleLabel, so SIGN is +1.
+  ucl:1,
   // Newly-scored traits. met/rpl/dab/ket/mfv (health-event resistance),
   // efc/hlv/hcr/ccr (fertility/livability), fs (feed saved), and
   // fatpct/propct (component %) are all higher-is-better. dce/ssb/dsb
@@ -731,10 +747,10 @@ const TRAITS = [
    toggleLabel:'Reward short, penalize tall',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'str', label:'Strength (STR)', group:'Body and Efficiency', defPct:0, source:'added',
-   toggleLabel:'Penalize strong, reward frail',
+   toggleLabel:'Reward strong, penalize frail',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'bde', label:'Body Depth (BDE)', group:'Body and Efficiency', defPct:0, source:'added',
-   toggleLabel:'Penalize deep, reward shallow',
+   toggleLabel:'Reward deep, penalize shallow',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'cw', label:'Chest Width -CDN (CW)', group:'Body and Efficiency', defPct:7.18, source:'core',
    desc:''},
@@ -797,14 +813,14 @@ const TRAITS = [
   {key:'bcs', label:'Body Condition Score -CDN (BCS)', group:'Health and Fertility', subgroup:'Health', defPct:0, source:'added',
    desc:''},
 
-  {key:'rpa', label:'Rump Angle (RPA)', group:'Body and Efficiency', defPct:3.96, source:'core',
+  {key:'rpa', label:'Rump Angle (RPA)', group:'Body and Efficiency', defPct:3.96, source:'core', optimum:1,
    toggleLabel:'Reward sloped, penalize high pins',
-   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'trw', label:'Thurl Width (TRW)', group:'Body and Efficiency', defPct:0, source:'added',
+   desc:'1 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'trw', label:'Thurl Width (TRW)', group:'Body and Efficiency', defPct:0, source:'added', optimum:0.5,
    toggleLabel:'Reward wide, penalize narrow',
-   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'rls', label:'Rear Legs-Side (RLS)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
-   desc:'0 is optimum and any deviation is penalized.'},
+   desc:'0.5 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'rls', label:'Rear Legs-Side (RLS)', group:'Udder and Feet', defPct:0, source:'added', deviation:true, optimum:1,
+   desc:'1 is optimum and any deviation is penalized.'},
   {key:'rlr', label:'Rear Legs-Rear (RLR)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
   {key:'fta', label:'Foot Angle (FTA)', group:'Udder and Feet', defPct:0, source:'added',
@@ -817,18 +833,19 @@ const TRAITS = [
    desc:''},
   {key:'ruw', label:'Rear Udder Width (RUW)', group:'Udder and Feet', defPct:0, source:'added',
    desc:''},
-  {key:'ucl', label:'Udder Cleft (UCL)', group:'Udder and Feet', defPct:5.44, source:'core', deviation:true,
-   desc:'Any deviation from zero reduce score.'},
-  {key:'udp', label:'Udder Depth (UDP)', group:'Udder and Feet', defPct:0, source:'added',
+  {key:'ucl', label:'Udder Cleft (UCL)', group:'Udder and Feet', defPct:5.44, source:'core', optimum:1,
    toggleLabel:'Reward shallow, penalize deep',
-   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
-  {key:'ftp', label:'Front Teat Placement (FTP)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
-   desc:'Any deviation from 0 reduces score.'},
-  {key:'rtp', label:'Rear Teat Placement (RTP)', group:'Udder and Feet', defPct:0, source:'added', deviation:true,
-   desc:'Any deviation from 0 reduces score.'},
-  {key:'tlg', label:'Teat Length (TLG)', group:'Udder and Feet', defPct:3.40, source:'core',
+   desc:'1 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'udp', label:'Udder Depth (UDP)', group:'Udder and Feet', defPct:0, source:'added', optimum:0.5,
+   toggleLabel:'Reward shallow, penalize deep',
+   desc:'0.5 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'ftp', label:'Front Teat Placement (FTP)', group:'Udder and Feet', defPct:0, source:'added', deviation:true, optimum:0.5,
+   desc:'Any deviation from 0.5 reduces score.'},
+  {key:'rtp', label:'Rear Teat Placement (RTP)', group:'Udder and Feet', defPct:0, source:'added', deviation:true, optimum:-2,
+   desc:'Any deviation from -2 reduces score.'},
+  {key:'tlg', label:'Teat Length (TLG)', group:'Udder and Feet', defPct:3.40, source:'core', optimum:1.5,
    toggleLabel:'Reward long, penalize short',
-   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
+   desc:'1.5 is optimum and any deviation is penalized. Check below box to change this.'},
 
   {key:'a2', label:'Beta Casein', group:'Recessives', defPct:0, source:'derived',
    desc:'Rewards A2A2 and penalizes A1A1.'},
@@ -1538,11 +1555,13 @@ function computeScore(b, weights){
     if(typeof v !== 'number') continue;
     const symmetric = t.deviation || (TOGGLEABLE_DEVIATION[t.key] && !useOriginalDirection[t.key]);
     if(symmetric){
-      // Optimum is 0, not the population average — deviation in either
-      // direction is penalized equally. weights[t.key] is already negative
-      // (SIGN -1 or the fixed deviation sign), so this subtracts from the
-      // score as |v| grows.
-      s += weights[t.key] * Math.abs(v);
+      // Optimum defaults to 0 but can be overridden per trait (t.optimum) —
+      // deviation from that target in either direction is penalized
+      // equally. weights[t.key] is already negative (SIGN -1 or the fixed
+      // deviation sign), so this subtracts from the score as |v - optimum|
+      // grows.
+      const optimum = t.optimum ?? 0;
+      s += weights[t.key] * Math.abs(v - optimum);
       continue;
     }
     const avg = AVG[t.key] ?? 0;
