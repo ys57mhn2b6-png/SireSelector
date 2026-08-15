@@ -637,10 +637,10 @@ const K = 201.7223;
 // permanently deviation traits and already use this style via their
 // entries in MAD above (not here).
 // DEV_MAD values are mean(|trait - optimum|) from the reference population,
-// where optimum is each trait's own optimum field (0 when not set). sta and
-// str keep optimum 0; rpa=1, udp=0.5, tlg=1.5, trw=0.5, bde=0, ucl=1 — see
-// each trait's `optimum` field in TRAITS above for the authoritative value.
-const DEV_MAD = { sta:0.7678, rpa:1.0951, udp:0.7186, tlg:1.8343, str:0.6452, bde:0.6475, trw:0.6933, ucl:0.9226 };
+// where optimum is each trait's own optimum field (0 when not set). sta=-1.5
+// str=0; rpa=1, udp=0.5, tlg=1.5, trw=0.5, bde=0, ucl=1 — see each trait's
+// `optimum` field in TRAITS above for the authoritative value.
+const DEV_MAD = { sta:1.6777, rpa:1.0951, udp:0.7186, tlg:1.8343, str:0.6452, bde:0.6475, trw:0.6933, ucl:0.9226 };
 const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true, bde:true, trw:true, ucl:true };
 
 // Default is the original one-directional setup for sta, rpa, udp, and tlg:
@@ -651,7 +651,7 @@ const TOGGLEABLE_DEVIATION = { sta:true, rpa:true, udp:true, tlg:true, str:true,
 // symmetric/deviation scoring instead (0 = optimum, penalized either
 // direction, same shape as ftp/rtp) — see each trait's SIGN entry below
 // for the sign convention this depends on.
-let useOriginalDirection = { sta:true, rpa:true, udp:true, tlg:true, str:false };
+let useOriginalDirection = { sta:false, rpa:true, udp:true, tlg:true, str:false };
 
 // Milk is the one trait whose desirable DIRECTION (not just importance)
 // genuinely depends on the user's own situation — whether more milk helps
@@ -671,7 +671,7 @@ const SIGN = {
   // regardless of what prices the user enters.
   econprod:1,
   fat:1, pro:1, milk:-1, dpr:1, sce:-1, liv:1, mas:1, pl:1, scs:-1,
-  rpa:1, tlg:1, cw:1, bd:1, sta:-1, hhrating:1, rfi:-1, a2:1,
+  rpa:1, tlg:1, cw:1, bd:1, sta:1, hhrating:1, rfi:-1, a2:1,
   ruh:1, ruw:1, msprating:1, trw:1,
   // bcs: assumed higher = better, matching hhrating/msprating's convention
   // (same rating scale, same ~100 average) — not independently confirmed
@@ -743,9 +743,9 @@ const TRAITS = [
   {key:'propct', label:'Pro % PTA', group:'Production', defPct:0, source:'added', suffix:'%',
    desc:''},
 
-  {key:'sta', label:'Stature (STA)', group:'Body and Efficiency', defPct:4.16, source:'core',
-   toggleLabel:'Reward short, penalize tall',
-   desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
+  {key:'sta', label:'Stature (STA)', group:'Body and Efficiency', defPct:4.16, source:'core', optimum:-1.5,
+   toggleLabel:'Reward tall, penalize short',
+   desc:'-1.5 is optimum and any deviation is penalized. Check below box to change this.'},
   {key:'str', label:'Strength (STR)', group:'Body and Efficiency', defPct:0, source:'added',
    toggleLabel:'Reward strong, penalize frail',
    desc:'0 is optimum and any deviation is penalized. Check below box to change this.'},
@@ -990,7 +990,7 @@ const PRESETS = {
   // Feet & Legs Score, both at 5%, everything else in that group at 0.
   production:{label:'Production + US FM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:80,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:0,rfi:8,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:0,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { rpa:true, sta:true, str:true },
+    direction: { rpa:true, sta:false, str:true },
     economics: { fatPrice:5.01, proPrice:0, milkPrice:0.122, unit:'lb' },
     columns: ['rel','fat','pro','cw','bd','sta','fm','str','dfm','rfi'] },
   // Health + US CM Pricing: Body and Efficiency uses the same
@@ -1002,7 +1002,7 @@ const PRESETS = {
   // KET 0.1, MAS 0.6, MET 0.4, RPL 0.3). Sums to exactly 100.
   health:    {label:'Health + US CM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:3.2,gl:0,sce:1.3,liv:8.9,mas:0.6,rfi:8,fs:0,efc:1.6,dce:0.8,ssb:0.8,dsb:2.3,hcr:0.8,ccr:2.7,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:1.1,met:0.4,rpl:0.3,dab:0.7,ket:0.1,mfv:0.1,rpa:0,ucl:0,tlg:0,cw:0,bd:0,sta:2,hhrating:0,pl:19.2,scs:5.1,a2:0,ruh:0,ruw:0,ftp:0,rtp:0,msprating:0,bcs:0,trw:0,str:6,dfm:4,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
     filters: { a2Only:true, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { rpa:true, sta:true, str:true },
+    direction: { rpa:true, sta:false, str:true },
     economics: { fatPrice:5.01, proPrice:4.73, milkPrice:-0.02, unit:'lb' },
     columns: ['rel','fat','pro','dpr','sce','cm','rfi','liv','pl','scs'] },
 
@@ -1010,19 +1010,19 @@ const PRESETS = {
   // Body and Efficiency group; Udder and Feet carries most of the weight.
   type:      {label:'Type + US NM Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:20,fatpct:0,propct:0,dpr:0,gl:0,sce:0,liv:0,mas:5,rfi:0,fs:0,efc:0,dce:0,ssb:0,dsb:5,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,hhrating:5,rpa:1,ucl:2.2,tlg:1.3,cw:8,bd:4,sta:0,pl:5,scs:0,a2:0,ruh:6.1,ruw:5.1,ftp:1,rtp:1.3,msprating:0,bcs:0,trw:3,str:0,dfm:4,fta:0.6,rls:0.6,fua:4.2,udp:5.4,rlr:2.8,fls:9.4},
     filters: { a2Only:false, studGroups:{select:false, abs:false, alta:false, semex:false, stg:false} },
-    direction: { rpa:false, sta:false },
+    direction: { rpa:false, sta:true },
     economics: { fatPrice:5.01, proPrice:3.33, milkPrice:0.022, unit:'lb' },
     columns: ['rel','nm','fat','pro','cw','bd','sta','fls','ruh','udp'] },
 
   // Balanced + NZ Milk Pricing: bundles in filter/direction settings, unlike
   // most other presets here which only touch importance weights: 70% min
   // reliability, A2A2 only, clones and genetic recessive carriers excluded,
-  // and every marketing company selected. Rump Angle, Stature, and Strength
-  // use their one-directional scoring (reward sloped/penalize high pins;
-  // reward short/penalize tall; penalize strong/reward frail).
-  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:35,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:5,ucl:0,tlg:5,cw:5,bd:5,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:0,rls:0,fua:0,udp:0,rlr:0,fls:0},
+  // and every marketing company selected. Rump Angle and Stature use their
+  // default optimum-based (symmetric) scoring; only Strength uses
+  // one-directional scoring (reward strong, penalize frail).
+  balanced:  {label:'Balanced + NZ Milk Pricing', pcts: {fat:0,pro:0,milk:0,econprod:30,fatpct:0,propct:0,dpr:5,gl:0,sce:5,liv:0,mas:5,rfi:5,fs:0,efc:0,dce:0,ssb:0,dsb:0,hcr:0,ccr:0,fcs:0,nm:0,gm:0,cm:0,fm:0,tpi:0,hcc:0,bde:0,hlv:0,met:0,rpl:0,dab:0,ket:0,mfv:0,rpa:3,ucl:0,tlg:5,cw:4,bd:4,sta:5,hhrating:5,pl:5,scs:0,a2:0,ruh:0,ruw:0,ftp:0,rtp:5,msprating:5,bcs:0,trw:0,str:0,dfm:0,fta:5,rls:0,fua:0,udp:0,rlr:0,fls:5},
     filters: { relMin:70, a2Only:true, excludeClones:true, excludeHaplotype:true, cwMin:-1, bdMin:-1, studGroups:{select:true, abs:true, alta:true, semex:true, stg:true} },
-    direction: { rpa:true, sta:true, str:true },
+    direction: { rpa:false, sta:false, str:true },
     // Custom pricing, supplied as $6.38/kg fat, $6.38/kg protein,
     // -$0.08/kg milk — converted to $/lb here since that's the canonical
     // unit economicValues is always stored in (1 kg = 2.20462 lb), with
