@@ -1943,7 +1943,7 @@ function renderSidebar(){
       <h2>Your Shortlist <span class="count">(${shortlist.size})</span></h2>
       <div id="shortlistBody"></div>
     </div>
-    <p class="foot-note">Each slider sets a trait's <i>importance</i> only. Direction (higher/lower is better) is fixed for most traits. The exceptions are Milk, whose contribution can be set positive or negative depending on how your milk payments are structured, and four type traits — Stature, Rump Angle, Udder Depth, and Teat Length — which can each be switched between symmetric (0 = optimum, deviation penalized either way) and one-directional scoring using the checkboxes under those sliders. Rear Legs-Side always scores with 0 as the optimum; it has no one-directional option.</p>
+    <p class="foot-note">Each slider sets a trait's <i>importance</i> only. Direction (higher/lower is better) is fixed for most traits. The exceptions are Milk, whose contribution can be set positive or negative depending on how your milk payments are structured, and eight type traits — Stature, Strength, Body Depth, Rump Angle, Thurl Width, Udder Depth, Teat Length, and Udder Cleft — which can each be switched between symmetric (deviation from that trait's optimum penalized either way) and one-directional scoring using the checkboxes under those sliders. Rear Legs-Side, Front Teat Placement, and Rear Teat Placement always score with their own fixed optimum; they have no one-directional option.</p>
   `;
 
   document.querySelectorAll('.preset-btn').forEach(btn=>{
